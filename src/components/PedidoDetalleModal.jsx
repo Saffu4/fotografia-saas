@@ -83,16 +83,25 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
     win.document.write(`
       <html><head><title>Recibo de Pedido #${order.order_number}</title>
       <style>
-        body{font-family: Arial, sans-serif; padding: 24px; color:#111}
-        .header{display:flex; align-items:center; gap:14px; margin-bottom:12px}
-        .header img{height:56px; width:auto; object-fit:contain}
-        .header .company{font-weight:bold; font-size:1.1em}
-        h2{margin:0 0 2px 0} .muted{color:#555}
-        table{width:100%; border-collapse:collapse; margin-top:16px}
-        td{padding:6px 0; vertical-align:top}
-        td.label{color:#555; width:40%}
-        .total{font-weight:bold; font-size:1.1em; border-top:1px solid #ccc; padding-top:8px}
-        .descripcion{margin-top:16px; padding:10px; border:1px solid #ddd; border-radius:6px; white-space:pre-wrap}
+        @page{size:80mm auto; margin:8mm 5mm}
+        *{box-sizing:border-box}
+        body{font-family:Arial,sans-serif; width:70mm; margin:0 auto; color:#111; font-size:12px; line-height:1.4}
+        .header{text-align:center; padding-bottom:12px; border-bottom:1px dashed #999}
+        .header img{display:block; width:52mm; height:30mm; margin:0 auto 9px; object-fit:contain}
+        .header .company{font-weight:bold; font-size:16px; letter-spacing:.3px}
+        h2{margin:3px 0; font-size:15px; letter-spacing:1.4px}
+        .muted{color:#555; font-size:11px}
+        table{width:100%; border-collapse:collapse; margin-top:12px}
+        tr{display:block; padding:5px 0; border-bottom:1px dotted #ccc}
+        td{display:block; padding:0; vertical-align:top}
+        td.label{color:#666; width:auto; font-size:10px; text-transform:uppercase; letter-spacing:.5px}
+        td:not(.label){font-weight:600; font-size:13px; overflow-wrap:anywhere}
+        .total{display:flex; justify-content:space-between; align-items:end; border-top:2px solid #111; border-bottom:0; margin-top:5px; padding:10px 0 0; font-weight:bold; font-size:14px}
+        .total td{display:block}
+        .total td.label{color:#111; font-size:11px}
+        .total td:not(.label){font-size:16px}
+        .descripcion{margin-top:14px; padding:9px 0; border-top:1px dashed #999; border-bottom:1px dashed #999; white-space:pre-wrap; overflow-wrap:anywhere}
+        .descripcion strong{display:block; margin-bottom:4px; font-size:10px; text-transform:uppercase; letter-spacing:.5px}
       </style></head><body>
       <div class="header">
         <img src="${logoUrl}" onerror="this.style.display='none'" />
@@ -120,7 +129,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       </body></html>
     `)
     win.document.close()
-    win.print()
+    win.onload = () => win.print()
   }
 
   if (loading || !order) {

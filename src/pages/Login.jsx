@@ -13,13 +13,18 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) {
-      setError('Correo o contraseña incorrectos.')
-      return
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError('Correo o contraseña incorrectos.')
+        return
+      }
+      navigate('/clientes')
+    } catch {
+      setError('No se pudo conectar con el servidor. Revisa la configuración de Supabase.')
+    } finally {
+      setLoading(false)
     }
-    navigate('/clientes')
   }
 
   return (

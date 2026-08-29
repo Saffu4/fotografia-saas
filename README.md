@@ -32,6 +32,11 @@ VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
 VITE_SUPABASE_ANON_KEY=tu-anon-key
 ```
 
+En Vercel, añade las mismas variables en **Project Settings → Environment
+Variables** y selecciona al menos el entorno **Production**. Después de
+guardarlas, vuelve a desplegar el proyecto para que Vite las incluya en el
+build.
+
 ## 3. Instalar y correr
 
 ```bash
