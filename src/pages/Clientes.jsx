@@ -5,6 +5,7 @@ import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 
 const emptyForm = { name: '', phone: '', address: '' }
+const PAGE_SIZE = 10
 
 export default function Clientes() {
   const { user } = useAuth()
@@ -16,19 +17,28 @@ export default function Clientes() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalClients, setTotalClients] = useState(0)
 
   async function loadClients() {
     setLoading(true)
-    let query = supabase.from('clients').select('*').order('created_at', { ascending: false })
+    let query = supabase
+      .from('clients')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
     if (search.trim()) {
       query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,address.ilike.%${search}%`)
     }
-    const { data, error } = await query
-    if (!error) setClients(data)
+    const { data, error, count } = await query
+    if (!error) {
+      setClients(data ?? [])
+      setTotalClients(count ?? 0)
+    }
     setLoading(false)
   }
 
-  useEffect(() => { loadClients() }, [search])
+  useEffect(() => { loadClients() }, [search, page, refreshKey])
 
   function openNew() {
     setEditing(null)
@@ -85,7 +95,7 @@ export default function Clientes() {
             <input
               placeholder="Buscar clientes..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange w-56"
             />
             <button
@@ -126,6 +136,31 @@ export default function Clientes() {
             ))}
           </tbody>
         </table>
+
+        {totalClients > 0 && (
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="text-slate-400">
+              Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalClients)} de {totalClients}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((current) => current - 1)}
+                className="px-3 py-1.5 rounded-lg border border-panel-border hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span className="text-slate-400">Página {page} de {Math.ceil(totalClients / PAGE_SIZE)}</span>
+              <button
+                disabled={page >= Math.ceil(totalClients / PAGE_SIZE)}
+                onClick={() => setPage((current) => current + 1)}
+                className="px-3 py-1.5 rounded-lg border border-panel-border hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {modalOpen && (

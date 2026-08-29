@@ -10,6 +10,7 @@ const badgeColor = {
   'Entregado': 'bg-green-500/15 text-green-400',
   'Cancelado': 'bg-red-500/15 text-red-400',
 }
+const PAGE_SIZE = 10
 
 export default function Pedidos() {
   const [orders, setOrders] = useState([])
@@ -20,23 +21,29 @@ export default function Pedidos() {
   const [editingOrder, setEditingOrder] = useState(null)
   const [detailId, setDetailId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalOrders, setTotalOrders] = useState(0)
 
   async function loadOrders() {
     setLoading(true)
     let query = supabase
       .from('orders')
-      .select('*, clients(name, phone)')
+      .select('*, clients(name, phone)', { count: 'exact' })
       .order('date', { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
     if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
     if (search.trim()) query = query.or(`order_number.ilike.%${search}%,responsible.ilike.%${search}%`)
 
-    const { data, error } = await query
-    if (!error) setOrders(data)
+    const { data, error, count } = await query
+    if (!error) {
+      setOrders(data ?? [])
+      setTotalOrders(count ?? 0)
+    }
     setLoading(false)
   }
 
-  useEffect(() => { loadOrders() }, [search, statusFilter, refreshKey])
+  useEffect(() => { loadOrders() }, [search, statusFilter, refreshKey, page])
 
   function openNew() {
     setEditingOrder(null)
@@ -64,12 +71,12 @@ export default function Pedidos() {
             <input
               placeholder="Buscar #, cliente, tel..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange w-56"
             />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
               className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm"
             >
               <option>Todos los Estados</option>
@@ -130,6 +137,31 @@ export default function Pedidos() {
             ))}
           </tbody>
         </table>
+
+        {totalOrders > 0 && (
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="text-slate-400">
+              Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalOrders)} de {totalOrders}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((current) => current - 1)}
+                className="px-3 py-1.5 rounded-lg border border-panel-border hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span className="text-slate-400">Página {page} de {Math.ceil(totalOrders / PAGE_SIZE)}</span>
+              <button
+                disabled={page >= Math.ceil(totalOrders / PAGE_SIZE)}
+                onClick={() => setPage((current) => current + 1)}
+                className="px-3 py-1.5 rounded-lg border border-panel-border hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {formOpen && (
