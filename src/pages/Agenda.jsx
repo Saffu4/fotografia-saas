@@ -16,6 +16,7 @@ export default function Agenda() {
   const [formOpen, setFormOpen] = useState(false)
   const [pickedDate, setPickedDate] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [editingSession, setEditingSession] = useState(null)
 
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
@@ -63,11 +64,24 @@ export default function Agenda() {
       ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       : null
     setPickedDate(iso)
+    setEditingSession(null)
+    setSelectedDay(null)
+    setFormOpen(true)
+  }
+
+  function openEditSession(session) {
+    setEditingSession(session)
+    setSelectedDay(null)
     setFormOpen(true)
   }
 
   function openDay(day) {
     if (day) setSelectedDay(day)
+  }
+
+  function isToday(day) {
+    const today = new Date()
+    return day && day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
   }
 
   const selectedSessions = sessionsForDay(selectedDay)
@@ -79,23 +93,27 @@ export default function Agenda() {
 
   return (
     <Layout title="Panel de Administración" showStats={false}>
-      <div className="bg-panel-card border border-panel-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-panel-card border border-panel-border rounded-xl p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <h2 className="font-semibold text-lg">Agenda de Sesiones</h2>
-            <p className="text-sm text-slate-400">Programa sesiones para tus clientes</p>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-panel-orange" />
+              <h2 className="font-semibold text-lg">Agenda de Sesiones</h2>
+            </div>
+            <p className="text-sm text-slate-400 mt-1">Organiza citas, estudios y reagendaciones</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => changeMonth(-1)} className="px-2 py-1 rounded-lg border border-panel-border hover:bg-white/5">‹</button>
-            <span className="font-medium w-36 text-center">{MESES[month]} {year}</span>
-            <button onClick={() => changeMonth(1)} className="px-2 py-1 rounded-lg border border-panel-border hover:bg-white/5">›</button>
-            <button onClick={() => openNewSession(null)} className="ml-3 px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setCursor(new Date())} className="px-3 py-2 rounded-lg border border-panel-border text-sm hover:bg-white/5">Hoy</button>
+            <button onClick={() => changeMonth(-1)} aria-label="Mes anterior" className="h-9 w-9 rounded-lg border border-panel-border text-lg hover:bg-white/5">‹</button>
+            <span className="font-medium min-w-32 text-center">{MESES[month]} {year}</span>
+            <button onClick={() => changeMonth(1)} aria-label="Mes siguiente" className="h-9 w-9 rounded-lg border border-panel-border text-lg hover:bg-white/5">›</button>
+            <button onClick={() => openNewSession(null)} className="px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600">
               + Agendar Sesión
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 text-xs text-slate-400 mb-2">
+        <div className="grid grid-cols-7 text-[11px] font-semibold tracking-wide text-slate-500 mb-2">
           {DIAS.map((d) => <div key={d} className="text-center py-1">{d}</div>)}
         </div>
 
@@ -104,14 +122,23 @@ export default function Agenda() {
             <div
               key={i}
               onClick={() => openDay(day)}
-              className={`min-h-[90px] rounded-lg border border-panel-border p-2 text-xs ${
-                day ? 'bg-panel-bg cursor-pointer hover:border-panel-orange/60' : 'bg-transparent border-transparent'
+              className={`min-h-[90px] sm:min-h-[112px] rounded-lg border p-2 text-xs transition-colors ${
+                day
+                  ? isToday(day)
+                    ? 'bg-panel-orange/[0.07] border-panel-orange/70 cursor-pointer'
+                    : 'bg-panel-bg border-panel-border cursor-pointer hover:border-panel-orange/60'
+                  : 'bg-transparent border-transparent'
               }`}
             >
-              {day && <div className="text-slate-400 mb-1">{day}</div>}
+              {day && (
+                <div className={`mb-2 flex h-6 w-6 items-center justify-center rounded-full ${isToday(day) ? 'bg-panel-orange text-white font-semibold' : 'text-slate-400'}`}>
+                  {day}
+                </div>
+              )}
               {sessionsForDay(day).slice(0, 3).map((s) => (
-                <div key={s.id} className="mb-1 px-1.5 py-0.5 rounded bg-panel-orange/15 text-panel-orange truncate">
-                  {new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} {s.clients?.name ?? s.studio}
+                <div key={s.id} className="mb-1 rounded-md border border-panel-orange/10 bg-panel-orange/15 px-1.5 py-1 text-panel-orange truncate">
+                  <span className="font-medium">{new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>{' '}
+                  {s.clients?.name ?? s.studio ?? 'Sesión'}
                 </div>
               ))}
               {sessionsForDay(day).length > 3 && (
@@ -149,8 +176,14 @@ export default function Agenda() {
                       </div>
                       <div className="mt-1 text-slate-200">{s.clients?.name ?? 'Cliente sin asignar'}</div>
                     </div>
-                    {s.studio && <span className="text-sm text-slate-400">{s.studio}</span>}
+                    <button
+                      onClick={() => openEditSession(s)}
+                      className="shrink-0 rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
+                    >
+                      Editar / reagendar
+                    </button>
                   </div>
+                  {s.studio && <div className="mt-2 text-sm text-slate-400">{s.studio}</div>}
                   {s.notes && <p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap">{s.notes}</p>}
                 </div>
               ))}
@@ -162,6 +195,7 @@ export default function Agenda() {
       {formOpen && (
         <SesionFormModal
           defaultDate={pickedDate}
+          session={editingSession}
           onClose={() => setFormOpen(false)}
           onSaved={() => { setFormOpen(false); loadSessions() }}
         />

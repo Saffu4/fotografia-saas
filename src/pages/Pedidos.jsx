@@ -26,6 +26,18 @@ export default function Pedidos() {
 
   async function loadOrders() {
     setLoading(true)
+    const searchTerm = search.trim()
+    let matchingClientIds = []
+
+    if (searchTerm) {
+      const { data: matchingClients } = await supabase
+        .from('clients')
+        .select('id')
+        .or(`name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
+
+      matchingClientIds = (matchingClients ?? []).map((client) => client.id)
+    }
+
     let query = supabase
       .from('orders')
       .select('*, clients(name, phone)', { count: 'exact' })
@@ -33,7 +45,11 @@ export default function Pedidos() {
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
     if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
-    if (search.trim()) query = query.or(`order_number.ilike.%${search}%,responsible.ilike.%${search}%`)
+    if (searchTerm) {
+      const searchFilters = [`order_number.ilike.%${searchTerm}%`, `responsible.ilike.%${searchTerm}%`]
+      if (matchingClientIds.length) searchFilters.push(`client_id.in.(${matchingClientIds.join(',')})`)
+      query = query.or(searchFilters.join(','))
+    }
 
     const { data, error, count } = await query
     if (!error) {

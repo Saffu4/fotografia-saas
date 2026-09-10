@@ -3,17 +3,32 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
 
-export default function SesionFormModal({ defaultDate, onClose, onSaved }) {
+function getSessionForm(session, defaultDate) {
+  if (!session) {
+    return {
+      client_id: '',
+      date: defaultDate ?? new Date().toISOString().slice(0, 10),
+      time: '09:00',
+      studio: '',
+      notes: '',
+    }
+  }
+
+  const sessionDate = new Date(session.date)
+  return {
+    client_id: session.client_id ?? '',
+    date: sessionDate.toISOString().slice(0, 10),
+    time: sessionDate.toISOString().slice(11, 16),
+    studio: session.studio ?? '',
+    notes: session.notes ?? '',
+  }
+}
+
+export default function SesionFormModal({ defaultDate, session, onClose, onSaved }) {
   const { user } = useAuth()
   const [clients, setClients] = useState([])
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
-    client_id: '',
-    date: defaultDate ?? new Date().toISOString().slice(0, 10),
-    time: '09:00',
-    studio: '',
-    notes: '',
-  })
+  const [form, setForm] = useState(() => getSessionForm(session, defaultDate))
 
   useEffect(() => {
     supabase.from('clients').select('id, name').order('name').then(({ data }) => {
@@ -23,22 +38,28 @@ export default function SesionFormModal({ defaultDate, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    const action = session ? 'modificar' : 'agendar'
+    if (!window.confirm(`¿Confirmas ${action} esta sesión?`)) return
+
     setSaving(true)
     const iso = new Date(`${form.date}T${form.time}:00`).toISOString()
-    const { error } = await supabase.from('sessions').insert({
-      user_id: user.id,
+    const sessionData = {
       client_id: form.client_id || null,
       date: iso,
       studio: form.studio,
       notes: form.notes,
-    })
+    }
+    const { error } = session
+      ? await supabase.from('sessions').update(sessionData).eq('id', session.id)
+      : await supabase.from('sessions').insert({ ...sessionData, user_id: user.id })
+
     setSaving(false)
     if (error) return alert('Error: ' + error.message)
     onSaved()
   }
 
   return (
-    <Modal title="Agendar Sesión" onClose={onClose}>
+    <Modal title={session ? 'Modificar Sesión' : 'Agendar Sesión'} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <label className="block text-sm mb-1 text-slate-300">Cliente</label>
         <select
@@ -91,7 +112,7 @@ export default function SesionFormModal({ defaultDate, onClose, onSaved }) {
             Cancelar
           </button>
           <button disabled={saving} className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 disabled:opacity-50">
-            {saving ? 'Guardando...' : 'Agendar'}
+            {saving ? 'Guardando...' : session ? 'Guardar cambios' : 'Agendar'}
           </button>
         </div>
       </form>
