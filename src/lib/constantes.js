@@ -1,0 +1,63 @@
+// Listas compartidas entre Agenda y Pedidos.
+// Para agregar/renombrar una categoría o un estado, edita solo este archivo.
+
+export const ESTADOS_PEDIDO = ['Pendiente', 'En edición', 'Cola de impresión', 'Entregado', 'Cancelado']
+
+export const ESTADO_BADGE = {
+  'Pendiente': 'bg-amber-500/15 text-amber-400',
+  'En edición': 'bg-sky-500/15 text-sky-400',
+  'Cola de impresión': 'bg-violet-500/15 text-violet-400',
+  'Entregado': 'bg-green-500/15 text-green-400',
+  'Cancelado': 'bg-red-500/15 text-red-400',
+}
+
+// Categorías de trabajo / sesión. Cada una tiene su color para que en la
+// agenda se distingan a simple vista.
+export const CATEGORIAS = [
+  { nombre: 'Fotoshow',   chip: 'bg-orange-500/15 text-orange-300 border-orange-500/30',   dot: 'bg-orange-500' },
+  { nombre: 'Graduandos', chip: 'bg-blue-500/15 text-blue-300 border-blue-500/30',         dot: 'bg-blue-500' },
+  { nombre: 'Yudith',     chip: 'bg-pink-500/15 text-pink-300 border-pink-500/30',         dot: 'bg-pink-500' },
+  { nombre: 'Gustavo',    chip: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-500' },
+  { nombre: 'Maye',       chip: 'bg-violet-500/15 text-violet-300 border-violet-500/30',   dot: 'bg-violet-500' },
+  { nombre: 'Eventos',    chip: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',   dot: 'bg-yellow-400' },
+]
+
+const SIN_CATEGORIA = { nombre: '', chip: 'bg-slate-500/15 text-slate-300 border-slate-500/30', dot: 'bg-slate-400' }
+
+// Busca la categoría sin importar mayúsculas/tildes, para que los registros
+// viejos escritos a mano ("yudith", "Judith", "graduandos ") también tomen color.
+function normalizar(txt) {
+  return (txt ?? '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+const ALIAS = { judith: 'yudith', graduando: 'graduandos', evento: 'eventos', estudio: 'fotoshow', photoshop: 'fotoshow' }
+
+export function categoriaDe(valor) {
+  let n = normalizar(valor)
+  n = ALIAS[n] ?? n
+  return CATEGORIAS.find((c) => normalizar(c.nombre) === n) ?? SIN_CATEGORIA
+}
+
+// "judith " -> "Yudith"; un valor que no es categoría se deja tal cual.
+export function nombreCanonico(valor) {
+  return categoriaDe(valor).nombre || (valor ?? '').trim()
+}
+
+// Opciones para un <select>: la lista fija + el valor actual si es uno viejo
+// que no está en la lista (así no se pierde al editar).
+export function opcionesCategoria(valorActual) {
+  const nombres = CATEGORIAS.map((c) => c.nombre)
+  if (valorActual && !nombres.includes(valorActual)) return [...nombres, valorActual]
+  return nombres
+}
+
+// Fecha/hora LOCAL (Colombia) en formato de inputs. No usar toISOString()
+// para esto: devuelve UTC y corre la hora 5 horas.
+export function fechaLocalInput(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+export function horaLocalInput(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${p(d.getHours())}:${p(d.getMinutes())}`
+}

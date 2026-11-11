@@ -3,13 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import PedidoFormModal from '../components/PedidoFormModal'
 import PedidoDetalleModal from '../components/PedidoDetalleModal'
-
-const badgeColor = {
-  'Pendiente': 'bg-amber-500/15 text-amber-400',
-  'Cola de impresión': 'bg-violet-500/15 text-violet-400',
-  'Entregado': 'bg-green-500/15 text-green-400',
-  'Cancelado': 'bg-red-500/15 text-red-400',
-}
+import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe } from '../lib/constantes'
 const PAGE_SIZE = 10
 
 export default function Pedidos() {
@@ -96,10 +90,7 @@ export default function Pedidos() {
               className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm"
             >
               <option>Todos los Estados</option>
-              <option>Pendiente</option>
-              <option>Cola de impresión</option>
-              <option>Entregado</option>
-              <option>Cancelado</option>
+              {ESTADOS_PEDIDO.map((s) => <option key={s}>{s}</option>)}
             </select>
             <button
               onClick={openNew}
@@ -135,7 +126,11 @@ export default function Pedidos() {
                   <div className="font-medium">{o.clients?.name ?? '—'}</div>
                   <div className="text-slate-400 text-xs">{o.clients?.phone}</div>
                 </td>
-                <td className="py-3 text-slate-300">{o.work_type || '—'}</td>
+                <td className="py-3">
+                  {o.work_type ? (
+                    <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${categoriaDe(o.work_type).chip}`}>{o.work_type}</span>
+                  ) : '—'}
+                </td>
                 <td className="py-3 text-slate-300">{o.date}</td>
                 <td className="py-3">${Number(o.total).toLocaleString('es-CO')}</td>
                 <td className="py-3">${Number(o.balance).toLocaleString('es-CO')}</td>

@@ -23,11 +23,11 @@ create table if not exists public.orders (
   order_number text not null,
   client_id uuid references public.clients(id) on delete set null,
   date date not null default current_date,
-  work_type text,               -- Estudio, Yudith, etc.
+  work_type text,               -- Fotoshow, Graduandos, Yudith, Gustavo, Maye, Eventos (ver src/lib/constantes.js)
   total numeric(12,2) not null default 0,
   advance numeric(12,2) not null default 0,   -- abono
   balance numeric(12,2) not null default 0,   -- saldo pendiente
-  status text not null default 'Pendiente',   -- Pendiente, Cola de impresión, Entregado, etc.
+  status text not null default 'Pendiente',   -- Pendiente, En edición, Cola de impresión, Entregado, Cancelado
   responsible text,
   observations text,
   created_at timestamptz not null default now()
@@ -44,7 +44,6 @@ create table if not exists public.order_observations (
 -- ---------- ABONOS / PAGOS ----------
 create table if not exists public.payments (
   id uuid primary key default uuid_generate_v4(),
-  user_id uuid not null references auth.users(id) on delete cascade,
   order_id uuid not null references public.orders(id) on delete cascade,
   amount numeric(12,2) not null,
   payment_date timestamptz not null default now(),
@@ -86,9 +85,9 @@ returns trigger as $$
 begin
   update public.orders o
     set advance = coalesce((select sum(amount) from public.payments p where p.order_id = o.id), 0),
-        balance = o.total - coalesce((select sum(amount) from public.payments p where p.order_id = o.id), 0)
+        balance = greatest(0, o.total - coalesce((select sum(amount) from public.payments p where p.order_id = o.id), 0))
     where o.id = coalesce(new.order_id, old.order_id);
-  return new;
+  return null;
 end;
 $$ language plpgsql security definer;
 
@@ -128,10 +127,8 @@ create policy "order_obs_delete_own" on public.order_observations for delete
   using (exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid()));
 
 -- PAYMENTS
-create policy "payments_select_own" on public.payments for select using (auth.uid() = user_id);
-create policy "payments_insert_own" on public.payments for insert with check (auth.uid() = user_id);
-create policy "payments_update_own" on public.payments for update using (auth.uid() = user_id);
-create policy "payments_delete_own" on public.payments for delete using (auth.uid() = user_id);
+-- (producción: payments NO tiene user_id; se permite a usuarios autenticados)
+create policy "Enable all for auth users" on public.payments for all using (auth.role() = 'authenticated');
 
 -- SESSIONS
 create policy "sessions_select_own" on public.sessions for select using (auth.uid() = user_id);
