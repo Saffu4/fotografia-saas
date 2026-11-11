@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import SesionFormModal from '../components/SesionFormModal'
 import Modal from '../components/Modal'
+import ComprobanteCitaModal from '../components/ComprobanteCitaModal'
+import { CATEGORIAS, categoriaDe } from '../lib/constantes'
 
 const DIAS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
 const MESES = [
@@ -17,6 +19,7 @@ export default function Agenda() {
   const [pickedDate, setPickedDate] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
   const [editingSession, setEditingSession] = useState(null)
+  const [comprobante, setComprobante] = useState(null)
 
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
@@ -75,6 +78,14 @@ export default function Agenda() {
     setFormOpen(true)
   }
 
+  async function deleteSession(session) {
+    const quien = session.clients?.name ? ` de ${session.clients.name}` : ''
+    if (!window.confirm(`¿Eliminar la cita${quien}? Esta acción no se puede deshacer.`)) return
+    const { error } = await supabase.from('sessions').delete().eq('id', session.id)
+    if (error) return alert('Error: ' + error.message)
+    loadSessions()
+  }
+
   function openDay(day) {
     if (day) setSelectedDay(day)
   }
@@ -113,6 +124,14 @@ export default function Agenda() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-slate-400">
+          {CATEGORIAS.map((c) => (
+            <span key={c.nombre} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />{c.nombre}
+            </span>
+          ))}
+        </div>
+
         <div className="grid grid-cols-7 text-[11px] font-semibold tracking-wide text-slate-500 mb-2">
           {DIAS.map((d) => <div key={d} className="text-center py-1">{d}</div>)}
         </div>
@@ -136,7 +155,7 @@ export default function Agenda() {
                 </div>
               )}
               {sessionsForDay(day).slice(0, 3).map((s) => (
-                <div key={s.id} className="mb-1 rounded-md border border-panel-orange/10 bg-panel-orange/15 px-1.5 py-1 text-panel-orange truncate">
+                <div key={s.id} title={s.studio || ''} className={`mb-1 rounded-md border px-1.5 py-1 truncate ${categoriaDe(s.studio).chip}`}>
                   <span className="font-medium">{new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>{' '}
                   {s.clients?.name ?? s.studio ?? 'Sesión'}
                 </div>
@@ -169,21 +188,43 @@ export default function Agenda() {
             <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
               {selectedSessions.map((s) => (
                 <div key={s.id} className="rounded-lg border border-panel-border bg-panel-bg px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium text-panel-orange">
-                        {new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex gap-3">
+                      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${categoriaDe(s.studio).dot}`} />
+                      <div>
+                        <div className="font-medium text-slate-100">
+                          {new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div className="mt-1 text-slate-200">{s.clients?.name ?? 'Cliente sin asignar'}</div>
                       </div>
-                      <div className="mt-1 text-slate-200">{s.clients?.name ?? 'Cliente sin asignar'}</div>
                     </div>
-                    <button
-                      onClick={() => openEditSession(s)}
-                      className="shrink-0 rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
-                    >
-                      Editar / reagendar
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setComprobante(s)}
+                        className="rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
+                      >
+                        📲 Comprobante
+                      </button>
+                      <button
+                        onClick={() => openEditSession(s)}
+                        className="rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
+                      >
+                        Editar / reagendar
+                      </button>
+                      <button
+                        onClick={() => deleteSession(s)}
+                        title="Eliminar cita"
+                        className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
-                  {s.studio && <div className="mt-2 text-sm text-slate-400">{s.studio}</div>}
+                  {s.studio && (
+                    <div className="mt-2">
+                      <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${categoriaDe(s.studio).chip}`}>{s.studio}</span>
+                    </div>
+                  )}
                   {s.notes && <p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap">{s.notes}</p>}
                 </div>
               ))}
@@ -199,6 +240,10 @@ export default function Agenda() {
           onClose={() => setFormOpen(false)}
           onSaved={() => { setFormOpen(false); loadSessions() }}
         />
+      )}
+
+      {comprobante && (
+        <ComprobanteCitaModal session={comprobante} onClose={() => setComprobante(null)} />
       )}
     </Layout>
   )

@@ -2,29 +2,32 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
+import { opcionesCategoria, nombreCanonico, fechaLocalInput, horaLocalInput } from '../lib/constantes'
 
 function getSessionForm(session, defaultDate) {
   if (!session) {
     return {
       client_id: '',
-      date: defaultDate ?? new Date().toISOString().slice(0, 10),
+      date: defaultDate ?? fechaLocalInput(new Date()),
       time: '09:00',
       studio: '',
       notes: '',
     }
   }
 
+  // Ojo: hora LOCAL. Antes se usaba toISOString() (UTC) y al reagendar la
+  // cita se corría 5 horas cada vez que se guardaba.
   const sessionDate = new Date(session.date)
   return {
     client_id: session.client_id ?? '',
-    date: sessionDate.toISOString().slice(0, 10),
-    time: sessionDate.toISOString().slice(11, 16),
-    studio: session.studio ?? '',
+    date: fechaLocalInput(sessionDate),
+    time: horaLocalInput(sessionDate),
+    studio: nombreCanonico(session.studio),
     notes: session.notes ?? '',
   }
 }
 
-export default function SesionFormModal({ defaultDate, session, onClose, onSaved }) {
+export default function SesionFormModal({ defaultDate, session, onClose, onSaved, onDeleted }) {
   const { user } = useAuth()
   const [clients, setClients] = useState([])
   const [saving, setSaving] = useState(false)
@@ -56,6 +59,15 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
     setSaving(false)
     if (error) return alert('Error: ' + error.message)
     onSaved()
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('¿Eliminar esta cita? Esta acción no se puede deshacer.')) return
+    setSaving(true)
+    const { error } = await supabase.from('sessions').delete().eq('id', session.id)
+    setSaving(false)
+    if (error) return alert('Error: ' + error.message)
+    ;(onDeleted ?? onSaved)()
   }
 
   return (
@@ -92,12 +104,16 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
           </div>
         </div>
 
-        <label className="block text-sm mb-1 text-slate-300">Estudio / Tipo</label>
-        <input
+        <label className="block text-sm mb-1 text-slate-300">Estudio / Tipo *</label>
+        <select
+          required
           value={form.studio}
           onChange={(e) => setForm({ ...form, studio: e.target.value })}
           className="w-full mb-4 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
-        />
+        >
+          <option value="">Selecciona...</option>
+          {opcionesCategoria(form.studio).map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
 
         <label className="block text-sm mb-1 text-slate-300">Notas</label>
         <textarea
@@ -108,6 +124,14 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
         />
 
         <div className="flex justify-end gap-3">
+          {session && (
+            <button
+              type="button" onClick={handleDelete} disabled={saving}
+              className="mr-auto px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+            >
+              Eliminar
+            </button>
+          )}
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-panel-border text-slate-300 hover:bg-white/5">
             Cancelar
           </button>

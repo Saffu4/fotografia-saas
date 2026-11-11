@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
-
-const ESTADOS = ['Pendiente', 'Cola de impresión', 'Entregado', 'Cancelado']
+import { ESTADOS_PEDIDO, categoriaDe } from '../lib/constantes'
+import { recalcularSaldo } from '../lib/pedidos'
 const TABS = ['Detalles Generales', 'Abonos / Pagos', 'Observaciones']
 
 export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
@@ -56,6 +56,8 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       order_id: orderId, user_id: user.id, amount,
     })
     if (error) return alert('Error: ' + error.message)
+    const { error: errSaldo } = await recalcularSaldo(orderId)
+    if (errSaldo) alert('El abono se guardó, pero no se pudo actualizar el saldo: ' + errSaldo.message)
     setNewPayment('')
     await loadAll()
     onChanged()
@@ -172,7 +174,10 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
             </div>
             <div>
               <div className="text-slate-400 mt-3">Detalles del Trabajo</div>
-              <div>{order.work_type ?? '—'} &middot; {order.date}</div>
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${categoriaDe(order.work_type).dot}`} />
+                {order.work_type || '—'} &middot; {order.date}
+              </div>
             </div>
             <div>
               <div className="text-slate-400 mt-3">Responsable</div>
@@ -187,7 +192,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
               >
-                {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {ESTADOS_PEDIDO.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <button onClick={handleUpdateStatus} className="mt-2 w-full py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600">
                 Actualizar Estado

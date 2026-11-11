@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
-
-const ESTADOS = ['Pendiente', 'Cola de impresión', 'Entregado', 'Cancelado']
+import { ESTADOS_PEDIDO, opcionesCategoria, nombreCanonico } from '../lib/constantes'
+import { recalcularSaldo } from '../lib/pedidos'
 
 async function nextOrderNumber() {
   const { data } = await supabase
@@ -24,7 +24,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
     order_number: '',
     client_id: '',
     date: new Date().toISOString().slice(0, 10),
-    work_type: 'Estudio',
+    work_type: 'Fotoshow',
     total: 0,
     advance: 0,
     responsible: '',
@@ -42,7 +42,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
         order_number: order.order_number,
         client_id: order.client_id ?? '',
         date: order.date,
-        work_type: order.work_type ?? '',
+        work_type: nombreCanonico(order.work_type),
         total: order.total ?? 0,
         advance: order.advance ?? 0,
         responsible: order.responsible ?? '',
@@ -54,7 +54,9 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
     }
   }, [order])
 
-  const balance = Math.max(0, Number(form.total || 0) - Number(form.advance || 0))
+  // Al editar, el abonado sale de la tabla de pagos (no se edita aquí).
+  const abonado = order ? Number(order.advance || 0) : Number(form.advance || 0)
+  const balance = Math.max(0, Number(form.total || 0) - abonado)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -66,19 +68,37 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
       date: form.date,
       work_type: form.work_type,
       total: Number(form.total) || 0,
-      advance: Number(form.advance) || 0,
-      balance,
       responsible: form.responsible,
       status: form.status,
       observations: form.observations,
     }
 
+    // El abono NO se guarda directo en orders.advance: se registra como un
+    // pago en la tabla payments. Antes se guardaba directo y, al registrar el
+    // siguiente abono, el trigger recalculaba advance = suma de pagos y el
+    // abono inicial desaparecía.
     let error
+    let orderId = order?.id
     if (order) {
       ;({ error } = await supabase.from('orders').update(payload).eq('id', order.id))
     } else {
-      ;({ error } = await supabase.from('orders').insert({ ...payload, user_id: user.id }))
+      let created
+      ;({ data: created, error } = await supabase
+        .from('orders')
+        .insert({ ...payload, advance: 0, balance: payload.total, user_id: user.id })
+        .select('id')
+        .single())
+      orderId = created?.id
+
+      const abonoInicial = Number(form.advance) || 0
+      if (!error && abonoInicial > 0) {
+        ;({ error } = await supabase.from('payments').insert({
+          order_id: orderId, user_id: user.id, amount: abonoInicial,
+        }))
+      }
     }
+
+    if (!error && orderId) ({ error } = await recalcularSaldo(orderId))
 
     setSaving(false)
     if (error) {
@@ -124,13 +144,24 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm mb-1 text-slate-300">Abono (COP)</label>
-          <input
-            type="number" min="0"
-            value={form.advance}
-            onChange={(e) => setForm({ ...form, advance: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
-          />
+          <label className="block text-sm mb-1 text-slate-300">{order ? 'Abonado (COP)' : 'Abono inicial (COP)'}</label>
+          {order ? (
+            <>
+              <input
+                disabled
+                value={abonado.toLocaleString('es-CO')}
+                className="w-full px-3 py-2 rounded-lg bg-panel-bg/60 border border-panel-border text-slate-400"
+              />
+              <p className="mt-1 text-xs text-slate-500">Para agregar abonos usa 👁️ Ver → Abonos / Pagos.</p>
+            </>
+          ) : (
+            <input
+              type="number" min="0"
+              value={form.advance}
+              onChange={(e) => setForm({ ...form, advance: e.target.value })}
+              className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
+            />
+          )}
         </div>
 
         <div>
@@ -167,17 +198,21 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
             onChange={(e) => setForm({ ...form, status: e.target.value })}
             className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
           >
-            {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {ESTADOS_PEDIDO.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
         <div className="col-span-2">
-          <label className="block text-sm mb-1 text-slate-300">Tipo de Trabajo</label>
-          <input
+          <label className="block text-sm mb-1 text-slate-300">Tipo de Trabajo *</label>
+          <select
+            required
             value={form.work_type}
             onChange={(e) => setForm({ ...form, work_type: e.target.value })}
             className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
-          />
+          >
+            <option value="">Selecciona...</option>
+            {opcionesCategoria(form.work_type).map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
 
         <div className="col-span-2">
