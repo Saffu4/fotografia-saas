@@ -44,7 +44,6 @@ create table if not exists public.order_observations (
 -- ---------- ABONOS / PAGOS ----------
 create table if not exists public.payments (
   id uuid primary key default uuid_generate_v4(),
-  user_id uuid not null references auth.users(id) on delete cascade,
   order_id uuid not null references public.orders(id) on delete cascade,
   amount numeric(12,2) not null,
   payment_date timestamptz not null default now(),
@@ -128,10 +127,8 @@ create policy "order_obs_delete_own" on public.order_observations for delete
   using (exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid()));
 
 -- PAYMENTS
-create policy "payments_select_own" on public.payments for select using (auth.uid() = user_id);
-create policy "payments_insert_own" on public.payments for insert with check (auth.uid() = user_id);
-create policy "payments_update_own" on public.payments for update using (auth.uid() = user_id);
-create policy "payments_delete_own" on public.payments for delete using (auth.uid() = user_id);
+-- (producción: payments NO tiene user_id; se permite a usuarios autenticados)
+create policy "Enable all for auth users" on public.payments for all using (auth.role() = 'authenticated');
 
 -- SESSIONS
 create policy "sessions_select_own" on public.sessions for select using (auth.uid() = user_id);

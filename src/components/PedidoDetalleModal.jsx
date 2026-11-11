@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
 import { ESTADOS_PEDIDO, categoriaDe } from '../lib/constantes'
 import { recalcularSaldo } from '../lib/pedidos'
 const TABS = ['Detalles Generales', 'Abonos / Pagos', 'Observaciones']
 
 export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
-  const { user } = useAuth()
   const [tab, setTab] = useState(TABS[0])
   const [order, setOrder] = useState(null)
   const [client, setClient] = useState(null)
@@ -53,7 +51,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
     const amount = Number(newPayment)
     if (!amount || amount <= 0) return
     const { error } = await supabase.from('payments').insert({
-      order_id: orderId, user_id: user.id, amount,
+      order_id: orderId, amount,
     })
     if (error) return alert('Error: ' + error.message)
     const { error: errSaldo } = await recalcularSaldo(orderId)

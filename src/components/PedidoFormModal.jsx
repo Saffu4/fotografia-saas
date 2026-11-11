@@ -93,7 +93,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
       const abonoInicial = Number(form.advance) || 0
       if (!error && abonoInicial > 0) {
         ;({ error } = await supabase.from('payments').insert({
-          order_id: orderId, user_id: user.id, amount: abonoInicial,
+          order_id: orderId, amount: abonoInicial,
         }))
       }
     }
