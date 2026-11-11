@@ -88,26 +88,46 @@ export default function Clientes() {
 
   return (
     <Layout title="Panel de Administración" refreshKey={refreshKey}>
-      <div className="bg-panel-card border border-panel-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="font-semibold text-lg">Gestión de Clientes</h2>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <input
               placeholder="Buscar clientes..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange w-56"
+              className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange flex-1 min-w-0 sm:flex-none sm:w-56"
             />
             <button
               onClick={openNew}
-              className="px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600"
+              className="shrink-0 px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600"
             >
-              + Agregar Cliente
+              + Agregar<span className="hidden sm:inline"> Cliente</span>
             </button>
           </div>
         </div>
 
-        <table className="w-full text-sm">
+        {/* Celular: tarjetas */}
+        <div className="md:hidden divide-y divide-panel-border/60">
+          {loading && <div className="py-6 text-center text-slate-500 text-sm">Cargando...</div>}
+          {!loading && clients.length === 0 && <div className="py-6 text-center text-slate-500 text-sm">No hay clientes todavía.</div>}
+          {clients.map((c) => (
+            <div key={c.id} className="py-3 flex items-start justify-between gap-3">
+              <div className="min-w-0 text-sm">
+                <div className="font-medium">{c.name}</div>
+                {c.phone && <a href={`tel:${c.phone}`} className="text-slate-300 block">{c.phone}</a>}
+                {c.address && <div className="text-slate-400 text-xs truncate">{c.address}</div>}
+              </div>
+              <div className="flex shrink-0">
+                <button onClick={() => openEdit(c)} className="h-10 w-10 rounded-lg hover:bg-white/5" title="Editar">✏️</button>
+                <button onClick={() => handleDelete(c)} className="h-10 w-10 rounded-lg hover:bg-white/5" title="Eliminar">🗑️</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Computador: tabla */}
+        <table className="hidden md:table w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-panel-border">
               <th className="py-2 font-medium">Nombre</th>
@@ -138,7 +158,7 @@ export default function Clientes() {
         </table>
 
         {totalClients > 0 && (
-          <div className="flex items-center justify-between mt-4 text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 text-sm">
             <span className="text-slate-400">
               Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalClients)} de {totalClients}
             </span>

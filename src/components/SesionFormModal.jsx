@@ -83,7 +83,7 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm mb-1 text-slate-300">Fecha *</label>
             <input

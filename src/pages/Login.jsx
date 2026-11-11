@@ -28,8 +28,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-panel-bg">
-      <form onSubmit={handleSubmit} className="bg-panel-card border border-panel-border rounded-xl p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-panel-bg p-4">
+      <form onSubmit={handleSubmit} className="bg-panel-card border border-panel-border rounded-xl p-6 sm:p-8 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-6">
           <div className="w-9 h-9 rounded-lg bg-panel-orange flex items-center justify-center font-bold">P</div>
           <div>

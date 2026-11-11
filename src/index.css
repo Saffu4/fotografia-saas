@@ -17,3 +17,8 @@ body {
   #print-area, #print-area * { visibility: visible; }
   #print-area { position: absolute; top: 0; left: 0; width: 100%; }
 }
+
+/* En celular (iPhone) los campos con letra menor a 16px hacen zoom al tocarlos */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px !important; }
+}

@@ -74,20 +74,20 @@ export default function Pedidos() {
 
   return (
     <Layout title="Panel de Administración" refreshKey={refreshKey}>
-      <div className="bg-panel-card border border-panel-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+      <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
           <h2 className="font-semibold text-lg">Gestión de Pedidos</h2>
-          <div className="flex gap-3 flex-wrap">
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
             <input
               placeholder="Buscar #, cliente, tel..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange w-56"
+              className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm outline-none focus:border-panel-orange col-span-2 sm:w-56"
             />
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm"
+              className="min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm"
             >
               <option>Todos los Estados</option>
               {ESTADOS_PEDIDO.map((s) => <option key={s}>{s}</option>)}
@@ -101,6 +101,44 @@ export default function Pedidos() {
           </div>
         </div>
 
+        {/* Celular: tarjetas */}
+        <div className="md:hidden space-y-3">
+          {loading && <div className="py-6 text-center text-slate-500 text-sm">Cargando...</div>}
+          {!loading && orders.length === 0 && <div className="py-6 text-center text-slate-500 text-sm">No hay pedidos todavía.</div>}
+          {orders.map((o) => (
+            <div key={o.id} className="rounded-lg border border-panel-border bg-panel-bg p-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-400">#{o.order_number} · {o.date}</div>
+                  <div className="font-medium truncate">{o.clients?.name ?? '—'}</div>
+                  {o.clients?.phone && <a href={`tel:${o.clients.phone}`} className="text-slate-400 text-xs">{o.clients.phone}</a>}
+                </div>
+                <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${badgeColor[o.status] ?? 'bg-slate-500/15 text-slate-300'}`}>
+                  {o.status}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  {o.work_type && (
+                    <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${categoriaDe(o.work_type).chip}`}>{o.work_type}</span>
+                  )}
+                </div>
+                <div className="text-right text-xs">
+                  <div className="text-slate-400">Total ${Number(o.total).toLocaleString('es-CO')}</div>
+                  <div className="font-semibold text-sm">Saldo ${Number(o.balance).toLocaleString('es-CO')}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-panel-border/60 pt-3">
+                <button onClick={() => setDetailId(o.id)} className="py-2 rounded-lg border border-panel-border text-xs hover:bg-white/5">👁️ Ver</button>
+                <button onClick={() => openEdit(o)} className="py-2 rounded-lg border border-panel-border text-xs hover:bg-white/5">✏️ Editar</button>
+                <button onClick={() => handleDelete(o)} className="py-2 rounded-lg border border-red-500/40 text-red-400 text-xs hover:bg-red-500/10">🗑️ Eliminar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Computador: tabla */}
+        <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-panel-border">
@@ -148,9 +186,10 @@ export default function Pedidos() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {totalOrders > 0 && (
-          <div className="flex items-center justify-between mt-4 text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 text-sm">
             <span className="text-slate-400">
               Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalOrders)} de {totalOrders}
             </span>

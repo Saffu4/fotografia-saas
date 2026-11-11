@@ -105,7 +105,7 @@ export default function Agenda() {
   return (
     <Layout title="Panel de Administración" showStats={false}>
       <div className="bg-panel-card border border-panel-border rounded-xl p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4 sm:mb-6">
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-panel-orange" />
@@ -116,9 +116,9 @@ export default function Agenda() {
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setCursor(new Date())} className="px-3 py-2 rounded-lg border border-panel-border text-sm hover:bg-white/5">Hoy</button>
             <button onClick={() => changeMonth(-1)} aria-label="Mes anterior" className="h-9 w-9 rounded-lg border border-panel-border text-lg hover:bg-white/5">‹</button>
-            <span className="font-medium min-w-32 text-center">{MESES[month]} {year}</span>
+            <span className="font-medium flex-1 sm:flex-none sm:min-w-32 text-center">{MESES[month]} {year}</span>
             <button onClick={() => changeMonth(1)} aria-label="Mes siguiente" className="h-9 w-9 rounded-lg border border-panel-border text-lg hover:bg-white/5">›</button>
-            <button onClick={() => openNewSession(null)} className="px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600">
+            <button onClick={() => openNewSession(null)} className="w-full sm:w-auto px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600">
               + Agendar Sesión
             </button>
           </div>
@@ -136,12 +136,12 @@ export default function Agenda() {
           {DIAS.map((d) => <div key={d} className="text-center py-1">{d}</div>)}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {weeks.flat().map((day, i) => (
             <div
               key={i}
               onClick={() => openDay(day)}
-              className={`min-h-[90px] sm:min-h-[112px] rounded-lg border p-2 text-xs transition-colors ${
+              className={`min-h-[56px] sm:min-h-[112px] rounded-md sm:rounded-lg border p-1 sm:p-2 text-xs transition-colors ${
                 day
                   ? isToday(day)
                     ? 'bg-panel-orange/[0.07] border-panel-orange/70 cursor-pointer'
@@ -150,18 +150,28 @@ export default function Agenda() {
               }`}
             >
               {day && (
-                <div className={`mb-2 flex h-6 w-6 items-center justify-center rounded-full ${isToday(day) ? 'bg-panel-orange text-white font-semibold' : 'text-slate-400'}`}>
+                <div className={`mb-1 sm:mb-2 flex h-6 w-6 items-center justify-center rounded-full ${isToday(day) ? 'bg-panel-orange text-white font-semibold' : 'text-slate-400'}`}>
                   {day}
                 </div>
               )}
+              {/* Celular: puntos de color por cita */}
+              {sessionsForDay(day).length > 0 && (
+                <div className="sm:hidden flex flex-wrap gap-0.5">
+                  {sessionsForDay(day).slice(0, 6).map((s) => (
+                    <span key={s.id} className={`h-1.5 w-1.5 rounded-full ${categoriaDe(s.studio).dot}`} />
+                  ))}
+                  {sessionsForDay(day).length > 6 && <span className="text-[9px] leading-none text-slate-400">+</span>}
+                </div>
+              )}
+              {/* Computador: chips con hora y nombre */}
               {sessionsForDay(day).slice(0, 3).map((s) => (
-                <div key={s.id} title={s.studio || ''} className={`mb-1 rounded-md border px-1.5 py-1 truncate ${categoriaDe(s.studio).chip}`}>
+                <div key={s.id} title={s.studio || ''} className={`hidden sm:block mb-1 rounded-md border px-1.5 py-1 truncate ${categoriaDe(s.studio).chip}`}>
                   <span className="font-medium">{new Date(s.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>{' '}
                   {s.clients?.name ?? s.studio ?? 'Sesión'}
                 </div>
               ))}
               {sessionsForDay(day).length > 3 && (
-                <div className="mt-1 text-slate-400">+ {sessionsForDay(day).length - 3} más</div>
+                <div className="hidden sm:block mt-1 text-slate-400">+ {sessionsForDay(day).length - 3} más</div>
               )}
             </div>
           ))}
@@ -185,9 +195,9 @@ export default function Agenda() {
           </div>
 
           {selectedSessions.length > 0 && (
-            <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
+            <div className="sm:max-h-[50vh] sm:overflow-y-auto space-y-2 sm:pr-1">
               {selectedSessions.map((s) => (
-                <div key={s.id} className="rounded-lg border border-panel-border bg-panel-bg px-4 py-3">
+                <div key={s.id} className="rounded-lg border border-panel-border bg-panel-bg px-3 sm:px-4 py-3">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex gap-3">
                       <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${categoriaDe(s.studio).dot}`} />
@@ -198,23 +208,23 @@ export default function Agenda() {
                         <div className="mt-1 text-slate-200">{s.clients?.name ?? 'Cliente sin asignar'}</div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex">
                       <button
                         onClick={() => setComprobante(s)}
-                        className="rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
+                        className="rounded-lg border border-panel-border px-2 sm:px-3 py-2 sm:py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
                       >
-                        📲 Comprobante
+                        <span className="hidden sm:inline">📲 </span>Comprobante
                       </button>
                       <button
                         onClick={() => openEditSession(s)}
-                        className="rounded-lg border border-panel-border px-3 py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
+                        className="rounded-lg border border-panel-border px-2 sm:px-3 py-2 sm:py-1.5 text-xs text-slate-300 hover:border-panel-orange hover:text-white"
                       >
-                        Editar / reagendar
+                        <span className="sm:hidden">Editar</span><span className="hidden sm:inline">Editar / reagendar</span>
                       </button>
                       <button
                         onClick={() => deleteSession(s)}
                         title="Eliminar cita"
-                        className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+                        className="rounded-lg border border-red-500/40 px-2 sm:px-3 py-2 sm:py-1.5 text-xs text-red-400 hover:bg-red-500/10"
                       >
                         Eliminar
                       </button>

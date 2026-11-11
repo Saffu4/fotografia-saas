@@ -110,7 +110,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
 
   return (
     <Modal title={order ? 'Editar Pedido' : 'Agregar Nuevo Pedido'} onClose={onClose} wide>
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm mb-1 text-slate-300">Número de Pedido (Auto)</label>
           <input
@@ -202,7 +202,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
           </select>
         </div>
 
-        <div className="col-span-2">
+        <div className="col-span-full">
           <label className="block text-sm mb-1 text-slate-300">Tipo de Trabajo *</label>
           <select
             required
@@ -215,7 +215,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
           </select>
         </div>
 
-        <div className="col-span-2">
+        <div className="col-span-full">
           <label className="block text-sm mb-1 text-slate-300">Observaciones</label>
           <textarea
             rows={3}
@@ -226,7 +226,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
           />
         </div>
 
-        <div className="col-span-2 flex justify-end gap-3 pt-2">
+        <div className="col-span-full flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-panel-border text-slate-300 hover:bg-white/5">
             Cancelar
           </button>

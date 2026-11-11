@@ -148,7 +148,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
         </button>
       </div>
 
-      <div className="flex gap-2 mb-5 border-b border-panel-border">
+      <div className="flex gap-2 mb-5 border-b border-panel-border overflow-x-auto whitespace-nowrap">
         {TABS.map((t) => (
           <button
             key={t}
@@ -163,7 +163,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       </div>
 
       {tab === 'Detalles Generales' && (
-        <div className="grid grid-cols-2 gap-6 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
           <div className="space-y-2">
             <div>
               <div className="text-slate-400">Información del Cliente</div>
@@ -212,7 +212,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
               type="number" min="0" placeholder="Monto del abono"
               value={newPayment}
               onChange={(e) => setNewPayment(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
+              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
             />
             <button className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600">Registrar</button>
           </form>
@@ -241,7 +241,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
               placeholder="Agregar una nota..."
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
+              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
             />
             <button className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600">Agregar</button>
           </form>

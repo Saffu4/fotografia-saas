@@ -40,7 +40,7 @@ export default function BuzonInterno() {
 
   return (
     <Layout title="Panel de Administración" showStats={false}>
-      <div className="bg-panel-card border border-panel-border rounded-xl p-6 max-w-2xl">
+      <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6 max-w-2xl">
         <h2 className="font-semibold text-lg mb-4">Buzón Interno</h2>
 
         <form onSubmit={handleSubmit} className="mb-6 space-y-3">

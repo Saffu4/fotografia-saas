@@ -6,13 +6,13 @@ const colorMap = {
 
 export default function StatCard({ icon, label, value, color = 'orange' }) {
   return (
-    <div className="flex-1 bg-panel-card border border-panel-border rounded-xl p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${colorMap[color]}`}>
+    <div className="min-w-0 bg-panel-card border border-panel-border rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+      <div className={`w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-lg flex items-center justify-center text-base sm:text-xl ${colorMap[color]}`}>
         {icon}
       </div>
-      <div>
-        <div className="text-xs text-slate-400">{label}</div>
-        <div className="text-2xl font-bold">{value}</div>
+      <div className="min-w-0">
+        <div className="text-[11px] sm:text-xs text-slate-400 leading-tight">{label}</div>
+        <div className="text-xl sm:text-2xl font-bold">{value}</div>
       </div>
     </div>
   )
