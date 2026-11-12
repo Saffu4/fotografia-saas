@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Modal from './Modal'
+import CampoDinero from './CampoDinero'
 import { ESTADOS_PEDIDO, categoriaDe } from '../lib/constantes'
 import { recalcularSaldo, eliminarAbono } from '../lib/pedidos'
-import { pesos } from '../lib/utilidades'
+import { pesos, aPesosNumero } from '../lib/utilidades'
+import { avisar, confirmar } from './Avisos'
 // Escapa texto antes de meterlo en el HTML del recibo impreso.
 const esc = (v) => String(v ?? '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
@@ -38,35 +40,46 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
 
   useEffect(() => { loadAll() }, [orderId])
 
-  async function handleUpdateStatus() {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId)
-    if (error) return alert('Error: ' + error.message)
-    await loadAll()
+  const [estadoGuardado, setEstadoGuardado] = useState(false)
+
+  // El estado se guarda apenas se elige (antes había que presionar
+  // "Actualizar Estado" y, si se cerraba la ventana, el cambio se perdía).
+  async function cambiarEstado(nuevo) {
+    const anterior = status
+    setStatus(nuevo)
+    setEstadoGuardado(false)
+    const { error } = await supabase.from('orders').update({ status: nuevo }).eq('id', orderId)
+    if (error) { setStatus(anterior); return avisar('No se pudo cambiar el estado: ' + error.message, 'error') }
+    setOrder((o) => ({ ...o, status: nuevo }))
+    setEstadoGuardado(true)
+    setTimeout(() => setEstadoGuardado(false), 2500)
     onChanged()
   }
 
   async function handleAddPayment(e) {
     e.preventDefault()
-    const amount = Number(newPayment)
+    const amount = aPesosNumero(newPayment)
     if (!amount || amount <= 0 || saving) return
     const saldo = Number(order.balance || 0)
-    if (amount > saldo && !window.confirm(`El abono (${pesos(amount)}) es mayor que el saldo pendiente (${pesos(saldo)}). ¿Registrarlo de todas formas?`)) return
+    if (amount > saldo && !(await confirmar(`El abono (${pesos(amount)}) es mayor que el saldo pendiente (${pesos(saldo)}).\n¿Registrarlo de todas formas?`, { titulo: 'Abono mayor que el saldo', aceptar: 'Registrar' }))) return
     setSaving(true)
     const { error } = await supabase.from('payments').insert({ order_id: orderId, amount })
-    if (error) { setSaving(false); return alert('Error: ' + error.message) }
+    if (error) { setSaving(false); return avisar('Error: ' + error.message, 'error') }
     const { error: errSaldo } = await recalcularSaldo(orderId)
-    if (errSaldo) alert('El abono se guardó, pero no se pudo actualizar el saldo: ' + errSaldo.message)
+    if (errSaldo) avisar('El abono se guardó, pero no se pudo actualizar el saldo: ' + errSaldo.message, 'error')
     setNewPayment('')
+    avisar(`Abono de ${pesos(amount)} registrado`)
     await loadAll()
     setSaving(false)
     onChanged()
   }
 
   async function handleDeletePayment(p) {
-    if (!window.confirm(`¿Eliminar el abono de ${pesos(p.amount)} del ${new Date(p.payment_date).toLocaleDateString('es-CO')}?`)) return
+    if (!(await confirmar(`¿Eliminar el abono de ${pesos(p.amount)} del ${new Date(p.payment_date).toLocaleDateString('es-CO')}?`, { peligro: true, aceptar: 'Eliminar' }))) return
     setSaving(true)
     const { error } = await eliminarAbono(p)
-    if (error) alert('Error: ' + error.message)
+    if (error) avisar('Error: ' + error.message, 'error')
+    else avisar('Abono eliminado')
     await loadAll()
     setSaving(false)
     onChanged()
@@ -78,8 +91,9 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
     const { error } = await supabase.from('order_observations').insert({
       order_id: orderId, content: newNote.trim(),
     })
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
     setNewNote('')
+    avisar('Nota agregada')
     await loadAll()
   }
 
@@ -198,14 +212,14 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
               <label className="block text-slate-400 mb-1">Estado Actual</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => cambiarEstado(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
               >
                 {ESTADOS_PEDIDO.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button onClick={handleUpdateStatus} className="mt-2 w-full py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600">
-                Actualizar Estado
-              </button>
+              <div className={`mt-1 h-4 text-xs text-green-400 transition-opacity ${estadoGuardado ? 'opacity-100' : 'opacity-0'}`}>
+                ✓ Estado actualizado
+              </div>
             </div>
             <div className="pt-2 space-y-1">
               <div className="flex justify-between"><span className="text-slate-400">Total</span><span className="font-bold">${Number(order.total).toLocaleString('es-CO')}</span></div>
@@ -219,17 +233,17 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       {tab === 'Abonos / Pagos' && (
         <div>
           <form onSubmit={handleAddPayment} className="flex gap-2 mb-4">
-            <input
-              type="number" min="0" placeholder="Monto del abono"
+            <CampoDinero
+              placeholder="Monto del abono" mostrarAyuda
               value={newPayment}
-              onChange={(e) => setNewPayment(e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
+              onChange={setNewPayment}
+              className="py-2 rounded-lg bg-panel-bg border border-panel-border"
             />
-            <button disabled={saving} className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 disabled:opacity-50">Registrar</button>
+            <button disabled={saving} className="self-start px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 disabled:opacity-50">Registrar</button>
           </form>
           {Number(order.balance) > 0 && (
             <button
-              type="button" onClick={() => setNewPayment(String(Number(order.balance)))}
+              type="button" onClick={() => setNewPayment(Number(order.balance))}
               className="-mt-2 mb-4 text-xs text-panel-orange hover:underline"
             >
               Pagar saldo completo ({pesos(order.balance)})

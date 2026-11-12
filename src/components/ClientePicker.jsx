@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import { limpiarBusqueda, useDebounce } from '../lib/utilidades'
+import { buscarClientes } from '../lib/datos'
+import { avisar, confirmar } from './Avisos'
 
 // Buscador de clientes: busca en la base mientras se escribe (no carga todos
 // los clientes de una vez) y permite crear uno nuevo sin salir del formulario.
@@ -28,11 +30,12 @@ export default function ClientePicker({ value, onChange, required = false }) {
     if (!abierto) return
     let vigente = true
     setBuscando(true)
-    let q = supabase.from('clients').select('id, name, phone').order('name').limit(20)
-    if (busqueda) q = q.or(`name.ilike.%${busqueda}%,phone.ilike.%${busqueda}%`)
-    q.then(({ data }) => {
+    const consulta = busqueda
+      ? buscarClientes(busqueda, 20)
+      : supabase.from('clients').select('id, name, phone').order('name').limit(20).then(({ data }) => data ?? [])
+    consulta.then((data) => {
       if (!vigente) return
-      setResultados(data ?? [])
+      setResultados(data)
       setBuscando(false)
     })
     return () => { vigente = false }
@@ -57,10 +60,11 @@ export default function ClientePicker({ value, onChange, required = false }) {
     if (!nuevo.name.trim()) return
     const { data, error } = await supabase
       .from('clients')
-      .insert({ name: nuevo.name.trim(), phone: nuevo.phone.trim(), user_id: user.id })
+      .insert({ name: nuevo.name.trim(), phone: nuevo.phone.replace(/\D/g, ''), user_id: user.id })
       .select('id, name, phone')
       .single()
-    if (error) return alert('No se pudo crear el cliente: ' + error.message)
+    if (error) return avisar('No se pudo crear el cliente: ' + error.message, 'error')
+    avisar(`Cliente ${data.name} creado`)
     elegir(data)
   }
 

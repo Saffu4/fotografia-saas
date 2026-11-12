@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import { traerTodo } from '../lib/datos'
 import { categoriaDe } from '../lib/constantes'
 import { pesos, aCSV, descargar, enlaceWhatsApp } from '../lib/utilidades'
+import { avisar, confirmar } from '../components/Avisos'
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const TABLAS_RESPALDO = [
@@ -107,7 +108,7 @@ export default function Reportes() {
       const filas = await traerTodo(tabla)
       descargar(`respaldo-${tabla}-${hoy.toISOString().slice(0, 10)}.csv`, aCSV(filas))
     } catch (e) {
-      alert(`No se pudo respaldar ${nombre}: ${e.message}`)
+      avisar(`No se pudo respaldar ${nombre}: ${e.message}`, 'error')
     }
     setRespaldando('')
   }

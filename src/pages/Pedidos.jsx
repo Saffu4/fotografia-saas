@@ -5,6 +5,8 @@ import PedidoFormModal from '../components/PedidoFormModal'
 import PedidoDetalleModal from '../components/PedidoDetalleModal'
 import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe, categoriasPara } from '../lib/constantes'
 import { limpiarBusqueda, useDebounce, pesos } from '../lib/utilidades'
+import { buscarClientes } from '../lib/datos'
+import { avisar, confirmar } from '../components/Avisos'
 const PAGE_SIZE = 10
 
 export default function Pedidos() {
@@ -17,6 +19,7 @@ export default function Pedidos() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [detailId, setDetailId] = useState(null)
+  const [resaltado, setResaltado] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [page, setPage] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
@@ -26,19 +29,15 @@ export default function Pedidos() {
     let matchingClientIds = []
 
     if (searchTerm) {
-      const { data: matchingClients } = await supabase
-        .from('clients')
-        .select('id')
-        .or(`name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
-        .limit(200)
-
-      matchingClientIds = (matchingClients ?? []).map((client) => client.id)
+      const matchingClients = await buscarClientes(searchTerm, 200, 'id')
+      matchingClientIds = matchingClients.map((client) => client.id)
     }
 
     let query = supabase
       .from('orders')
       .select('*, clients(name, phone)', { count: 'exact' })
       .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
     if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
@@ -75,9 +74,10 @@ export default function Pedidos() {
   }
 
   async function handleDelete(order) {
-    if (!confirm(`¿Eliminar el pedido #${order.order_number}?`)) return
+    if (!(await confirmar(`¿Eliminar el pedido #${order.order_number}?`, { peligro: true, aceptar: 'Eliminar' }))) return
     const { error } = await supabase.from('orders').delete().eq('id', order.id)
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
+    avisar(`Pedido #${order.order_number} eliminado`)
     setRefreshKey((k) => k + 1)
   }
 
@@ -123,7 +123,7 @@ export default function Pedidos() {
           {loading && <div className="py-6 text-center text-slate-500 text-sm">Cargando...</div>}
           {!loading && orders.length === 0 && <div className="py-6 text-center text-slate-500 text-sm">No hay pedidos todavía.</div>}
           {orders.map((o) => (
-            <div key={o.id} className="rounded-lg border border-panel-border bg-panel-bg p-3 text-sm">
+            <div key={o.id} className={`rounded-lg border p-3 text-sm transition-colors ${resaltado === o.id ? 'border-panel-orange bg-panel-orange/10' : 'border-panel-border bg-panel-bg'}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="text-xs text-slate-400">#{o.order_number} · {o.date}</div>
@@ -175,7 +175,7 @@ export default function Pedidos() {
               <tr><td colSpan={8} className="py-6 text-center text-slate-500">No hay pedidos todavía.</td></tr>
             )}
             {orders.map((o) => (
-              <tr key={o.id} className="border-b border-panel-border/60 hover:bg-white/[0.03]">
+              <tr key={o.id} className={`border-b border-panel-border/60 transition-colors ${resaltado === o.id ? 'bg-panel-orange/15' : 'hover:bg-white/[0.03]'}`}>
                 <td className="py-3 font-medium">{o.order_number}</td>
                 <td className="py-3">
                   <div className="font-medium">{o.clients?.name ?? '—'}</div>
@@ -235,7 +235,11 @@ export default function Pedidos() {
         <PedidoFormModal
           order={editingOrder}
           onClose={() => setFormOpen(false)}
-          onSaved={() => { setFormOpen(false); setRefreshKey((k) => k + 1) }}
+          onSaved={(r) => {
+            setFormOpen(false)
+            if (r?.nuevo) { setPage(1); setResaltado(r.id); setTimeout(() => setResaltado(null), 5000) }
+            setRefreshKey((k) => k + 1)
+          }}
         />
       )}
 

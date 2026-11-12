@@ -5,6 +5,7 @@ import SesionFormModal from '../components/SesionFormModal'
 import Modal from '../components/Modal'
 import ComprobanteCitaModal from '../components/ComprobanteCitaModal'
 import { categoriasPara, categoriaDe } from '../lib/constantes'
+import { avisar, confirmar } from '../components/Avisos'
 
 const DIAS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
 const MESES = [
@@ -80,9 +81,10 @@ export default function Agenda() {
 
   async function deleteSession(session) {
     const quien = session.clients?.name ? ` de ${session.clients.name}` : ''
-    if (!window.confirm(`¿Eliminar la cita${quien}? Esta acción no se puede deshacer.`)) return
+    if (!(await confirmar(`¿Eliminar la cita${quien}? Esta acción no se puede deshacer.`, { peligro: true, aceptar: 'Eliminar' }))) return
     const { error } = await supabase.from('sessions').delete().eq('id', session.id)
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
+    avisar('Cita eliminada')
     loadSessions()
   }
 

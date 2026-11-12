@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import { useEsAdmin } from './lib/admin'
 import Login from './pages/Login'
+import Restablecer from './pages/Restablecer'
 
 // Cada pantalla se descarga solo cuando se abre (la primera carga es más liviana).
 const Clientes = lazy(() => import('./pages/Clientes'))
@@ -33,6 +34,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/restablecer" element={<Restablecer />} />
       <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
       <Route path="/pedidos" element={<ProtectedRoute><Pedidos /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />

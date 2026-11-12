@@ -68,3 +68,22 @@ describe('acceso a Reportes', () => {
     expect(await esCorreoAdmin('')).toBe(false)
   })
 })
+
+import { aPesosNumero } from '../utilidades'
+import { nombreResponsable, opcionesResponsable } from '../constantes'
+describe('dinero escrito como en Colombia', () => {
+  it('"50.000" son cincuenta mil, no cincuenta', () => {
+    expect(aPesosNumero('50.000')).toBe(50000)
+    expect(aPesosNumero('$ 1.250.000')).toBe(1250000)
+    expect(aPesosNumero('50000')).toBe(50000)
+    expect(aPesosNumero(250000)).toBe(250000)
+    expect(aPesosNumero('250000.00')).toBe(250000)
+    expect(aPesosNumero('')).toBe(0)
+  })
+})
+describe('responsables', () => {
+  it('unifica mayúsculas y conserva nombres viejos', () => {
+    expect(nombreResponsable('maye ')).toBe('Maye')
+    expect(opcionesResponsable('Mayerly')).toContain('Mayerly')
+  })
+})

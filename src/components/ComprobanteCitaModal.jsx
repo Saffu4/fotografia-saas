@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { categoriaDe } from '../lib/constantes'
 import { enlaceWhatsApp, telefonoWhatsApp } from '../lib/utilidades'
+import { avisar, confirmar } from './Avisos'
 
 // Tarjeta con los datos de UNA sola cita, pensada para tomarle pantallazo
 // (o copiar el texto) y enviársela al cliente por WhatsApp.
@@ -29,7 +30,7 @@ export default function ComprobanteCitaModal({ session, onClose }) {
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2000)
     } catch {
-      alert(texto)
+      avisar('No se pudo copiar automáticamente. Usa el botón de WhatsApp.', 'error')
     }
   }
 

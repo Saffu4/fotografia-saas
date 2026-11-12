@@ -5,9 +5,24 @@ import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import ClienteHistorialModal from '../components/ClienteHistorialModal'
 import { limpiarBusqueda, useDebounce } from '../lib/utilidades'
+import { buscarClientes } from '../lib/datos'
+import { avisar, confirmar } from '../components/Avisos'
 
 const emptyForm = { name: '', phone: '', address: '' }
 const PAGE_SIZE = 10
+
+async function buscarDuplicado({ name, phone }, excluirId) {
+  const base = () => {
+    let q = supabase.from('clients').select('id, name, phone').limit(1)
+    if (excluirId) q = q.neq('id', excluirId)
+    return q
+  }
+  const [porTel, porNombre] = await Promise.all([
+    phone ? base().eq('phone', phone) : Promise.resolve({ data: [] }),
+    name ? base().ilike('name', name.replace(/[%_\\]/g, '')) : Promise.resolve({ data: [] }),
+  ])
+  return porTel.data?.[0] ?? porNombre.data?.[0] ?? null
+}
 
 export default function Clientes() {
   const { user } = useAuth()
@@ -32,7 +47,8 @@ export default function Clientes() {
       .order('created_at', { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
     if (busqueda) {
-      query = query.or(`name.ilike.%${busqueda}%,phone.ilike.%${busqueda}%,address.ilike.%${busqueda}%`)
+      const ids = (await buscarClientes(busqueda, 500, 'id')).map((c) => c.id)
+      query = query.in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
     }
     const { data, error, count } = await query
     if (!vigente.ok) return
@@ -63,8 +79,19 @@ export default function Clientes() {
 
   async function handleSave(e) {
     e.preventDefault()
+    const datos = { name: form.name.trim().replace(/\s+/g, ' '), phone: form.phone.replace(/\D/g, ''), address: form.address.trim() }
+    if (datos.phone && datos.phone.length !== 10) {
+      return avisar('El teléfono debe tener 10 dígitos (ej. 3001234567).', 'error')
+    }
+
+    // Aviso de cliente repetido (mismo teléfono o mismo nombre).
+    const duplicado = await buscarDuplicado(datos, editing?.id)
+    if (duplicado && !(await confirmar(
+      `Ya existe ${duplicado.name}${duplicado.phone ? ` (${duplicado.phone})` : ''}.\n¿Guardar de todas formas como otro cliente?`,
+      { titulo: 'Cliente repetido', aceptar: 'Guardar igual' }
+    ))) return
+
     setSaving(true)
-    const datos = { name: form.name.trim(), phone: form.phone.trim(), address: form.address.trim() }
 
     const { error } = editing
       ? await supabase.from('clients').update(datos).eq('id', editing.id)
@@ -72,8 +99,9 @@ export default function Clientes() {
 
     setSaving(false)
     // Si falla, el formulario queda abierto para no perder lo escrito.
-    if (error) return alert((editing ? 'Error al actualizar: ' : 'Error al crear: ') + error.message)
+    if (error) return avisar((editing ? 'Error al actualizar: ' : 'Error al crear: ') + error.message, 'error')
     setModalOpen(false)
+    avisar(editing ? 'Cliente actualizado' : 'Cliente creado')
     setRefreshKey((k) => k + 1)
   }
 
@@ -82,9 +110,10 @@ export default function Clientes() {
     const aviso = count
       ? `${client.name} tiene ${count} pedido(s). Si lo eliminas, esos pedidos quedan sin cliente.\n\n¿Eliminar de todas formas?`
       : `¿Eliminar a ${client.name}? Esta acción no se puede deshacer.`
-    if (!confirm(aviso)) return
+    if (!(await confirmar(aviso, { titulo: 'Eliminar cliente', aceptar: 'Eliminar', peligro: true }))) return
     const { error } = await supabase.from('clients').delete().eq('id', client.id)
-    if (error) return alert('Error al eliminar: ' + error.message)
+    if (error) return avisar('Error al eliminar: ' + error.message, 'error')
+    avisar('Cliente eliminado')
     setRefreshKey((k) => k + 1)
   }
 
@@ -203,14 +232,14 @@ export default function Clientes() {
             <label className="block text-sm mb-1 text-slate-300">Teléfono *</label>
             <input
               required
+              type="tel" inputMode="numeric" placeholder="3001234567"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d\s+-]/g, '') })}
               className="w-full mb-4 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
             />
 
-            <label className="block text-sm mb-1 text-slate-300">Dirección *</label>
+            <label className="block text-sm mb-1 text-slate-300">Dirección <span className="text-slate-500">(opcional)</span></label>
             <input
-              required
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
               className="w-full mb-6 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"

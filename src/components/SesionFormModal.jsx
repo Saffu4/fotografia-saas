@@ -4,6 +4,7 @@ import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
 import ClientePicker from './ClientePicker'
 import { opcionesCategoria, nombreCanonico, fechaLocalInput, horaLocalInput } from '../lib/constantes'
+import { avisar, confirmar } from './Avisos'
 
 function getSessionForm(session, defaultDate) {
   if (!session) {
@@ -49,15 +50,21 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
     const { data: choques } = await q
     setSaving(false)
 
-    const action = session ? 'modificar' : 'agendar'
-    let pregunta = `¿Confirmas ${action} esta sesión?`
+    // Solo se pide confirmación si hay algo raro; agendar normal es un solo clic.
+    const avisos = []
     if (choques?.length) {
       const lista = choques.map((c) =>
         `• ${new Date(c.date).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })} — ${c.clients?.name ?? 'Sin cliente'}${c.studio ? ` (${c.studio})` : ''}`
       ).join('\n')
-      pregunta = `⚠️ Ya hay ${choques.length === 1 ? 'una cita' : choques.length + ' citas'} cerca de esa hora:\n${lista}\n\n¿${action === 'agendar' ? 'Agendar' : 'Guardar'} de todas formas?`
+      avisos.push(`Ya hay ${choques.length === 1 ? 'una cita' : choques.length + ' citas'} a menos de 1 hora:\n${lista}`)
     }
-    if (!window.confirm(pregunta)) return
+    if (!form.client_id) avisos.push('La cita no tiene cliente asignado.')
+    const cambioFecha = !session || new Date(session.date).getTime() !== inicio.getTime()
+    if (cambioFecha && inicio < new Date()) avisos.push('La fecha y hora ya pasaron.')
+    if (avisos.length && !(await confirmar(avisos.join('\n\n'), {
+      titulo: 'Revisa antes de guardar',
+      aceptar: session ? 'Guardar igual' : 'Agendar igual',
+    }))) return
 
     setSaving(true)
     const sessionData = {
@@ -71,16 +78,18 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
       : await supabase.from('sessions').insert({ ...sessionData, user_id: user.id })
 
     setSaving(false)
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
+    avisar(session ? 'Cita actualizada' : 'Cita agendada')
     onSaved()
   }
 
   async function handleDelete() {
-    if (!window.confirm('¿Eliminar esta cita? Esta acción no se puede deshacer.')) return
+    if (!(await confirmar('¿Eliminar esta cita? Esta acción no se puede deshacer.', { peligro: true, aceptar: 'Eliminar' }))) return
     setSaving(true)
     const { error } = await supabase.from('sessions').delete().eq('id', session.id)
     setSaving(false)
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
+    avisar('Cita eliminada')
     ;(onDeleted ?? onSaved)()
   }
 

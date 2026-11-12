@@ -18,6 +18,17 @@ export function useDebounce(valor, ms = 300) {
 }
 
 // ---------- Dinero ----------
+// "50.000", "$50.000", "50000" → 50000. En pesos no se usan centavos, así que
+// todo lo que no sea dígito se ignora (el punto es separador de miles).
+export function aPesosNumero(valor) {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? Math.round(valor) : 0
+  const t = String(valor ?? '').trim()
+  // "250000.00" (como lo devuelve la base) sí es decimal; "50.000" no.
+  if (/^\d+\.\d{1,2}$/.test(t)) return Math.round(parseFloat(t))
+  const d = String(valor ?? '').replace(/\D/g, '')
+  return d ? Number(d) : 0
+}
+
 export const pesos = (n) => '$' + Math.round(Number(n || 0)).toLocaleString('es-CO')
 
 // ---------- WhatsApp ----------

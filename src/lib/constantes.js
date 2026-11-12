@@ -11,6 +11,21 @@ export const ESTADO_BADGE = {
   'Cancelado': 'bg-red-500/15 text-red-400',
 }
 
+// Personas que atienden pedidos (campo "Responsable"). Para agregar a
+// alguien, escríbelo aquí.
+export const RESPONSABLES = ['Maye', 'Gustavo', 'Yudith']
+
+// "maye " → "Maye"; un nombre que no está en la lista se deja como venía.
+export function nombreResponsable(valor) {
+  const v = (valor ?? '').trim()
+  return RESPONSABLES.find((r) => r.toLowerCase() === v.toLowerCase()) ?? v
+}
+
+export function opcionesResponsable(valorActual) {
+  const v = nombreResponsable(valorActual)
+  return v && !RESPONSABLES.includes(v) ? [...RESPONSABLES, v] : RESPONSABLES
+}
+
 // Categorías de trabajo / sesión. Cada una tiene su color para que en la
 // agenda se distingan a simple vista.
 // `solo`: 'pedidos' o 'agenda' si la categoría aplica únicamente en uno de los

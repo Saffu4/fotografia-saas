@@ -26,11 +26,19 @@ export default function Layout({ title, children, showStats = true, refreshKey }
         </div>
 
         {showStats && (
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-8">
-            <StatCard icon="👥" label="Total Clientes" value={stats.totalClients} color="orange" />
-            <StatCard icon="⏱" label="Pedidos Pendientes" value={stats.pendingOrders} color="blue" />
-            <StatCard icon="🛒" label="Total Pedidos" value={stats.totalOrders} color="green" />
-          </div>
+          <>
+            {/* Celular: una sola línea para no empujar la lista hacia abajo */}
+            <div className="sm:hidden flex gap-2 mb-4 text-xs">
+              <span className="flex-1 rounded-lg bg-panel-card border border-panel-border px-2 py-2 text-center"><b className="text-panel-orange">{stats.totalClients}</b> clientes</span>
+              <span className="flex-1 rounded-lg bg-panel-card border border-panel-border px-2 py-2 text-center"><b className="text-panel-blue">{stats.pendingOrders}</b> en proceso</span>
+              <span className="flex-1 rounded-lg bg-panel-card border border-panel-border px-2 py-2 text-center"><b className="text-panel-green">{stats.totalOrders}</b> pedidos</span>
+            </div>
+            <div className="hidden sm:grid grid-cols-3 gap-4 mb-8">
+              <StatCard icon="👥" label="Total Clientes" value={stats.totalClients} color="orange" />
+              <StatCard icon="⏱" label="Pedidos en proceso" value={stats.pendingOrders} color="blue" />
+              <StatCard icon="🛒" label="Total Pedidos" value={stats.totalOrders} color="green" />
+            </div>
+          </>
         )}
 
         {children}

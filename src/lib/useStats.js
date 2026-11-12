@@ -10,7 +10,7 @@ export function useStats(refreshKey) {
     async function load() {
       const [clientsRes, pendingRes, ordersRes] = await Promise.all([
         supabase.from('clients').select('id', { count: 'exact', head: true }),
-        supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pendiente'),
+        supabase.from('orders').select('id', { count: 'exact', head: true }).in('status', ['Pendiente', 'En edición', 'Cola de impresión']),
         supabase.from('orders').select('id', { count: 'exact', head: true }),
       ])
 

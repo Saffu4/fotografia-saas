@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import { avisar, confirmar } from '../components/Avisos'
 
 export default function BuzonInterno() {
   const [items, setItems] = useState([])
@@ -29,15 +30,16 @@ export default function BuzonInterno() {
       author_name: author.trim() || 'Anónimo',
       content: content.trim(),
     })
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
     setContent('')
+    avisar('Nota enviada')
     load()
   }
 
   async function handleDelete(id) {
-    if (!confirm('¿Eliminar esta nota del buzón?')) return
+    if (!(await confirmar('¿Eliminar esta nota del buzón?', { peligro: true, aceptar: 'Eliminar' }))) return
     const { error } = await supabase.from('company_suggestions').delete().eq('id', id)
-    if (error) return alert('Error: ' + error.message)
+    if (error) return avisar('Error: ' + error.message, 'error')
     load()
   }
 
