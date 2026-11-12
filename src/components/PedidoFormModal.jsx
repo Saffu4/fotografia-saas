@@ -211,7 +211,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
             className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
           >
             <option value="">Selecciona...</option>
-            {opcionesCategoria(form.work_type).map((c) => <option key={c} value={c}>{c}</option>)}
+            {opcionesCategoria(form.work_type, 'pedidos').map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 

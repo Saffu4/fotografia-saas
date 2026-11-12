@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import SesionFormModal from '../components/SesionFormModal'
 import Modal from '../components/Modal'
 import ComprobanteCitaModal from '../components/ComprobanteCitaModal'
-import { CATEGORIAS, categoriaDe } from '../lib/constantes'
+import { categoriasPara, categoriaDe } from '../lib/constantes'
 
 const DIAS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
 const MESES = [
@@ -125,7 +125,7 @@ export default function Agenda() {
         </div>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-slate-400">
-          {CATEGORIAS.map((c) => (
+          {categoriasPara('agenda').map((c) => (
             <span key={c.nombre} className="flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />{c.nombre}
             </span>

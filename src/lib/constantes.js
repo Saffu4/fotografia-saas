@@ -13,6 +13,8 @@ export const ESTADO_BADGE = {
 
 // Categorías de trabajo / sesión. Cada una tiene su color para que en la
 // agenda se distingan a simple vista.
+// `solo`: 'pedidos' o 'agenda' si la categoría aplica únicamente en uno de los
+// dos; sin `solo` aparece en ambos.
 export const CATEGORIAS = [
   { nombre: 'Fotoshow',   chip: 'bg-orange-500/15 text-orange-300 border-orange-500/30',   dot: 'bg-orange-500' },
   { nombre: 'Graduandos', chip: 'bg-blue-500/15 text-blue-300 border-blue-500/30',         dot: 'bg-blue-500' },
@@ -20,7 +22,13 @@ export const CATEGORIAS = [
   { nombre: 'Gustavo',    chip: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-500' },
   { nombre: 'Maye',       chip: 'bg-violet-500/15 text-violet-300 border-violet-500/30',   dot: 'bg-violet-500' },
   { nombre: 'Eventos',    chip: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',   dot: 'bg-yellow-400' },
+  { nombre: 'Marquetería', chip: 'bg-rose-500/15 text-rose-300 border-rose-500/30',        dot: 'bg-rose-500',  solo: 'pedidos' },
+  { nombre: 'Sonido',     chip: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',         dot: 'bg-cyan-400',  solo: 'agenda' },
 ]
+
+export function categoriasPara(lugar) {
+  return CATEGORIAS.filter((c) => !c.solo || c.solo === lugar)
+}
 
 const SIN_CATEGORIA = { nombre: '', chip: 'bg-slate-500/15 text-slate-300 border-slate-500/30', dot: 'bg-slate-400' }
 
@@ -30,7 +38,7 @@ function normalizar(txt) {
   return (txt ?? '').toString().trim().toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
-const ALIAS = { judith: 'yudith', graduando: 'graduandos', evento: 'eventos', estudio: 'fotoshow', photoshop: 'fotoshow' }
+const ALIAS = { judith: 'yudith', graduando: 'graduandos', evento: 'eventos', estudio: 'fotoshow', photoshop: 'fotoshow', marqueteria: 'marqueteria', marco: 'marqueteria', marcos: 'marqueteria' }
 
 export function categoriaDe(valor) {
   let n = normalizar(valor)
@@ -45,8 +53,8 @@ export function nombreCanonico(valor) {
 
 // Opciones para un <select>: la lista fija + el valor actual si es uno viejo
 // que no está en la lista (así no se pierde al editar).
-export function opcionesCategoria(valorActual) {
-  const nombres = CATEGORIAS.map((c) => c.nombre)
+export function opcionesCategoria(valorActual, lugar) {
+  const nombres = categoriasPara(lugar).map((c) => c.nombre)
   if (valorActual && !nombres.includes(valorActual)) return [...nombres, valorActual]
   return nombres
 }

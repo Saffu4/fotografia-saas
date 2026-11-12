@@ -112,7 +112,7 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
           className="w-full mb-4 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
         >
           <option value="">Selecciona...</option>
-          {opcionesCategoria(form.studio).map((c) => <option key={c} value={c}>{c}</option>)}
+          {opcionesCategoria(form.studio, 'agenda').map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <label className="block text-sm mb-1 text-slate-300">Notas</label>
