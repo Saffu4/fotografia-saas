@@ -33,6 +33,7 @@ create table if not exists public.orders (
   status text not null default 'Pendiente',   -- Pendiente, En edición, Cola de impresión, Entregado, Cancelado
   responsible text,
   observations text,
+  photos_url text,                 -- enlace de las fotos (Drive, WeTransfer…)
   created_at timestamptz not null default now()
 );
 

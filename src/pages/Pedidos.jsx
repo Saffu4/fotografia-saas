@@ -3,11 +3,23 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import PedidoFormModal from '../components/PedidoFormModal'
 import PedidoDetalleModal from '../components/PedidoDetalleModal'
-import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe, categoriasPara } from '../lib/constantes'
+import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe, categoriasPara, ESTADOS_ACTIVOS, DIAS_ATRASO, diasSinEntregar, fechaLocalInput } from '../lib/constantes'
 import { limpiarBusqueda, useDebounce, pesos } from '../lib/utilidades'
 import { buscarClientes } from '../lib/datos'
 import { avisar, confirmar } from '../components/Avisos'
 const PAGE_SIZE = 10
+
+// "8 días" en gris; en rojo si pasa de DIAS_ATRASO. Nada si ya se entregó.
+function Dias({ pedido, className = '' }) {
+  const d = diasSinEntregar(pedido)
+  if (d === null) return null
+  const atrasado = d > DIAS_ATRASO
+  return (
+    <span title="Días desde la fecha del pedido" className={`text-[11px] whitespace-nowrap ${atrasado ? 'text-red-400 font-semibold' : 'text-slate-500'} ${className}`}>
+      {atrasado && '⚠ '}{d === 0 ? 'hoy' : `${d} ${d === 1 ? 'día' : 'días'}`}
+    </span>
+  )
+}
 
 export default function Pedidos() {
   const [orders, setOrders] = useState([])
@@ -40,7 +52,10 @@ export default function Pedidos() {
       .order('created_at', { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
-    if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
+    if (statusFilter === 'Atrasados') {
+      const limite = new Date(); limite.setDate(limite.getDate() - DIAS_ATRASO)
+      query = query.in('status', ESTADOS_ACTIVOS).lt('date', fechaLocalInput(limite))
+    } else if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
     if (tipoFilter) query = query.ilike('work_type', tipoFilter)
     if (searchTerm) {
       const searchFilters = [`order_number.ilike.%${searchTerm}%`, `responsible.ilike.%${searchTerm}%`]
@@ -100,6 +115,7 @@ export default function Pedidos() {
             >
               <option>Todos los Estados</option>
               {ESTADOS_PEDIDO.map((s) => <option key={s}>{s}</option>)}
+              <option value="Atrasados">⚠ Atrasados (+{DIAS_ATRASO} días)</option>
             </select>
             <select
               value={tipoFilter}
@@ -130,8 +146,9 @@ export default function Pedidos() {
                   <div className="font-medium truncate">{o.clients?.name ?? '—'}</div>
                   {o.clients?.phone && <a href={`tel:${o.clients.phone}`} className="text-slate-400 text-xs">{o.clients.phone}</a>}
                 </div>
-                <span className={`shrink-0 px-2 py-1 rounded-full text-xs font-medium ${badgeColor[o.status] ?? 'bg-slate-500/15 text-slate-300'}`}>
-                  {o.status}
+                <span className="shrink-0 flex flex-col items-end gap-1">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor[o.status] ?? 'bg-slate-500/15 text-slate-300'}`}>{o.status}</span>
+                  <Dias pedido={o} />
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">
@@ -193,6 +210,7 @@ export default function Pedidos() {
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor[o.status] ?? 'bg-slate-500/15 text-slate-300'}`}>
                     {o.status}
                   </span>
+                  <Dias pedido={o} className="ml-2" />
                 </td>
                 <td className="py-3 text-right whitespace-nowrap">
                   <button onClick={() => setDetailId(o.id)} className="mr-3" title="Ver">👁️</button>

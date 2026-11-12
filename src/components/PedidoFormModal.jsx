@@ -7,9 +7,9 @@ import CampoDinero from './CampoDinero'
 import { ESTADOS_PEDIDO, opcionesCategoria, nombreCanonico, fechaLocalInput, opcionesResponsable, nombreResponsable } from '../lib/constantes'
 import { recalcularSaldo, siguienteNumeroPedido } from '../lib/pedidos'
 import { aPesosNumero, pesos } from '../lib/utilidades'
-import { avisar } from './Avisos'
+import { avisar, confirmar } from './Avisos'
 
-export default function PedidoFormModal({ order, onClose, onSaved }) {
+export default function PedidoFormModal({ order, inicial, onClose, onSaved }) {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -22,6 +22,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
     responsible: '',
     status: 'Pendiente',
     observations: '',
+    ...(order ? {} : inicial ?? {}), // datos que vienen de una cita
   })
 
   useEffect(() => {
@@ -53,6 +54,10 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
     if (!order && abonoInicial > aPesosNumero(form.total)) {
       return avisar('El abono inicial no puede ser mayor que el total.', 'error')
     }
+    if (order && form.status === 'Entregado' && order.status !== 'Entregado' && Number(order.balance) > 0 && !(await confirmar(
+      `Este pedido todavía debe ${pesos(order.balance)}.\n¿Guardarlo como Entregado de todas formas?`,
+      { titulo: 'Entregar con saldo pendiente', aceptar: 'Sí, guardar' }
+    ))) return
     setSaving(true)
 
     const payload = {

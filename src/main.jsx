@@ -11,6 +11,7 @@ document.addEventListener('invalid', (e) => {
   if (!el.validity) return
   if (el.validity.valueMissing) el.setCustomValidity(el.tagName === 'SELECT' ? 'Elige una opción.' : 'Completa este campo.')
   else if (el.validity.typeMismatch && el.type === 'email') el.setCustomValidity('Escribe un correo válido.')
+  else if (el.validity.typeMismatch && el.type === 'url') el.setCustomValidity('Escribe el enlace completo, empezando por https://')
   else if (el.validity.patternMismatch) el.setCustomValidity(el.title || 'Revisa este dato.')
 }, true)
 document.addEventListener('input', (e) => e.target.setCustomValidity?.(''), true)

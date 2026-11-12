@@ -4,7 +4,7 @@ import Modal from './Modal'
 import CampoDinero from './CampoDinero'
 import { ESTADOS_PEDIDO, categoriaDe } from '../lib/constantes'
 import { recalcularSaldo, eliminarAbono } from '../lib/pedidos'
-import { pesos, aPesosNumero } from '../lib/utilidades'
+import { pesos, aPesosNumero, enlaceWhatsApp, telefonoWhatsApp } from '../lib/utilidades'
 import { avisar, confirmar } from './Avisos'
 // Escapa texto antes de meterlo en el HTML del recibo impreso.
 const esc = (v) => String(v ?? '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -46,6 +46,10 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
   // "Actualizar Estado" y, si se cerraba la ventana, el cambio se perdía).
   async function cambiarEstado(nuevo) {
     const anterior = status
+    if (nuevo === 'Entregado' && Number(order.balance) > 0 && !(await confirmar(
+      `Este pedido todavía debe ${pesos(order.balance)}.\n¿Marcarlo como Entregado de todas formas?`,
+      { titulo: 'Entregar con saldo pendiente', aceptar: 'Sí, entregar' }
+    ))) return
     setStatus(nuevo)
     setEstadoGuardado(false)
     const { error } = await supabase.from('orders').update({ status: nuevo }).eq('id', orderId)
@@ -143,6 +147,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
         <tr><td class="label">Responsable</td><td>${esc(order.responsible)}</td></tr>
         <tr><td class="label">Total</td><td>$${Number(order.total).toLocaleString('es-CO')}</td></tr>
         <tr><td class="label">Abonado</td><td>$${Number(order.advance).toLocaleString('es-CO')}</td></tr>
+        ${payments.map((p) => `<tr><td class="label">Abono ${esc(new Date(p.payment_date).toLocaleDateString('es-CO'))}</td><td>$${Number(p.amount).toLocaleString('es-CO')}</td></tr>`).join('')}
         <tr class="total"><td class="label">Saldo Pendiente</td><td>$${Number(order.balance).toLocaleString('es-CO')}</td></tr>
       </table>
       ${order.observations ? `
@@ -157,6 +162,42 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
     win.onload = () => win.print()
   }
 
+  const empresa = import.meta.env.VITE_COMPANY_NAME || 'el estudio'
+
+  function textoRecibo() {
+    const lineas = [
+      `*${empresa}* — Pedido #${order.order_number}`,
+      `Cliente: ${client?.name ?? ''}`,
+      order.work_type && `Trabajo: ${order.work_type}`,
+      `Estado: ${order.status}`,
+      '',
+      `Total: ${pesos(order.total)}`,
+      ...payments.slice().reverse().map((p) => `Abono ${new Date(p.payment_date).toLocaleDateString('es-CO')}: ${pesos(p.amount)}`),
+      `*Saldo pendiente: ${pesos(order.balance)}*`,
+      order.photos_url && `\nTus fotos: ${order.photos_url}`,
+    ]
+    return lineas.filter((l) => l !== undefined && l !== null && l !== false).join('\n')
+  }
+
+  // Enlace de las fotos (columna photos_url; requiere migracion_2026-11_fotos.sql)
+  const [enlace, setEnlace] = useState('')
+  const [faltaColumna, setFaltaColumna] = useState(false)
+  useEffect(() => { setEnlace(order?.photos_url ?? '') }, [order?.photos_url])
+  const tieneColumna = order && 'photos_url' in order
+
+  async function guardarEnlace(e) {
+    e.preventDefault()
+    const url = enlace.trim()
+    if (url && !/^https?:\/\//i.test(url)) return avisar('El enlace debe empezar por https://', 'error')
+    const { error } = await supabase.from('orders').update({ photos_url: url || null }).eq('id', orderId)
+    if (error) {
+      if (/photos_url|column/i.test(error.message)) setFaltaColumna(true)
+      return avisar('No se pudo guardar el enlace: ' + error.message, 'error')
+    }
+    setOrder((o) => ({ ...o, photos_url: url || null }))
+    avisar(url ? 'Enlace guardado' : 'Enlace quitado')
+  }
+
   if (loading || !order) {
     return (
       <Modal title="Detalles del Pedido" onClose={onClose} wide>
@@ -167,7 +208,13 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
 
   return (
     <Modal title={`Detalles del Pedido #${order.order_number} — ${client?.name ?? ''}`} onClose={onClose} wide>
-      <div className="flex justify-end -mt-2 mb-3">
+      <div className="flex justify-end gap-2 -mt-2 mb-3">
+        <a
+          href={enlaceWhatsApp(client?.phone, textoRecibo())} target="_blank" rel="noreferrer"
+          className="text-sm px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white"
+        >
+          {telefonoWhatsApp(client?.phone) ? 'Enviar recibo por WhatsApp' : 'Recibo por WhatsApp'}
+        </a>
         <button onClick={handlePrint} className="text-sm px-3 py-1.5 rounded-lg border border-panel-border text-slate-300 hover:bg-white/5">
           🖨️ Imprimir
         </button>
@@ -206,6 +253,34 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
               <div className="text-slate-400 mt-3">Responsable</div>
               <div>{order.responsible ?? '—'}</div>
             </div>
+            <form onSubmit={guardarEnlace} className="pt-3">
+              <label className="block text-slate-400 mb-1">Enlace de las fotos (Drive, WeTransfer…)</label>
+              {tieneColumna && !faltaColumna ? (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="url" inputMode="url" placeholder="https://..."
+                      value={enlace} onChange={(e) => setEnlace(e.target.value)}
+                      className="min-w-0 flex-1 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
+                    />
+                    <button className="px-3 py-2 rounded-lg border border-panel-border text-sm hover:bg-white/5">Guardar</button>
+                  </div>
+                  {order.photos_url && (
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                      <a href={order.photos_url} target="_blank" rel="noreferrer" className="text-panel-orange hover:underline">Abrir enlace</a>
+                      <a
+                        href={enlaceWhatsApp(client?.phone, `Hola ${client?.name?.split(' ')[0] ?? ''}, tus fotos de ${empresa} ya están listas: ${order.photos_url}`)}
+                        target="_blank" rel="noreferrer" className="text-green-400 hover:underline"
+                      >
+                        Enviar fotos por WhatsApp
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">Para activarlo hay que correr <code>migracion_2026-11_fotos.sql</code> en Supabase.</p>
+              )}
+            </form>
           </div>
           <div className="space-y-3">
             <div>

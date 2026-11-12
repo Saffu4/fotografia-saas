@@ -119,3 +119,4 @@ duplicar datos):
 2. `supabase/migracion_2026-11_seguridad.sql` — reglas del Buzón, categorías
    unificadas, número de pedido único e índices.
 3. `supabase/migracion_2026-11_busqueda.sql` — búsqueda de clientes sin tildes.
+4. `supabase/migracion_2026-11_fotos.sql` — enlace de las fotos en cada pedido.

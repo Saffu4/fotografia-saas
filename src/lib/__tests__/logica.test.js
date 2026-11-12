@@ -87,3 +87,13 @@ describe('responsables', () => {
     expect(opcionesResponsable('Mayerly')).toContain('Mayerly')
   })
 })
+
+import { diasSinEntregar } from '../constantes'
+describe('pedidos atrasados', () => {
+  it('cuenta días solo si no se ha entregado', () => {
+    const hoy = new Date(2026, 10, 20)
+    expect(diasSinEntregar({ status: 'Pendiente', date: '2026-11-01' }, hoy)).toBe(19)
+    expect(diasSinEntregar({ status: 'Entregado', date: '2026-11-01' }, hoy)).toBeNull()
+    expect(diasSinEntregar({ status: 'En edición', date: '2026-11-20' }, hoy)).toBe(0)
+  })
+})

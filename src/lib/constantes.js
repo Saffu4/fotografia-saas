@@ -1,6 +1,19 @@
 // Listas compartidas entre Agenda y Pedidos.
 // Para agregar/renombrar una categoría o un estado, edita solo este archivo.
 
+// Días sin entregar a partir de los cuales un pedido se marca como atrasado.
+export const DIAS_ATRASO = 15
+export const ESTADOS_ACTIVOS = ['Pendiente', 'En edición', 'Cola de impresión']
+
+// Días desde la fecha del pedido (solo para pedidos que no se han entregado).
+export function diasSinEntregar(pedido, hoy = new Date()) {
+  if (!ESTADOS_ACTIVOS.includes(pedido.status) || !pedido.date) return null
+  const [y, m, d] = pedido.date.split('-').map(Number)
+  const inicio = new Date(y, m - 1, d)
+  const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+  return Math.max(0, Math.round((base - inicio) / 86400000))
+}
+
 export const ESTADOS_PEDIDO = ['Pendiente', 'En edición', 'Cola de impresión', 'Entregado', 'Cancelado']
 
 export const ESTADO_BADGE = {
