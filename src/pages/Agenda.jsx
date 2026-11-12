@@ -29,7 +29,7 @@ export default function Agenda() {
     const end = new Date(year, month + 1, 1).toISOString()
     const { data } = await supabase
       .from('sessions')
-      .select('*, clients(name)')
+      .select('*, clients(name, phone)')
       .gte('date', start)
       .lt('date', end)
       .order('date')
@@ -103,7 +103,7 @@ export default function Agenda() {
     : ''
 
   return (
-    <Layout title="Panel de Administración" showStats={false}>
+    <Layout title="Agenda" showStats={false}>
       <div className="bg-panel-card border border-panel-border rounded-xl p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4 sm:mb-6">
           <div>

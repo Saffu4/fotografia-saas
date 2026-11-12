@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Modal from './Modal'
 import { ESTADOS_PEDIDO, categoriaDe } from '../lib/constantes'
-import { recalcularSaldo } from '../lib/pedidos'
+import { recalcularSaldo, eliminarAbono } from '../lib/pedidos'
+import { pesos } from '../lib/utilidades'
+// Escapa texto antes de meterlo en el HTML del recibo impreso.
+const esc = (v) => String(v ?? '—').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
 const TABS = ['Detalles Generales', 'Abonos / Pagos', 'Observaciones']
 
 export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
@@ -15,24 +19,19 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
   const [newPayment, setNewPayment] = useState('')
   const [newNote, setNewNote] = useState('')
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
+  // Las tres consultas van en paralelo (antes eran cuatro, una tras otra).
   async function loadAll() {
-    setLoading(true)
-    const { data: o } = await supabase.from('orders').select('*').eq('id', orderId).single()
+    const [{ data: o }, { data: p }, { data: n }] = await Promise.all([
+      supabase.from('orders').select('*, clients(*)').eq('id', orderId).single(),
+      supabase.from('payments').select('*').eq('order_id', orderId).order('payment_date', { ascending: false }),
+      supabase.from('order_observations').select('*').eq('order_id', orderId).order('created_at', { ascending: false }),
+    ])
     setOrder(o)
+    setClient(o?.clients ?? null)
     setStatus(o?.status ?? '')
-
-    if (o?.client_id) {
-      const { data: c } = await supabase.from('clients').select('*').eq('id', o.client_id).single()
-      setClient(c)
-    }
-
-    const { data: p } = await supabase
-      .from('payments').select('*').eq('order_id', orderId).order('payment_date', { ascending: false })
     setPayments(p ?? [])
-
-    const { data: n } = await supabase
-      .from('order_observations').select('*').eq('order_id', orderId).order('created_at', { ascending: false })
     setNotes(n ?? [])
     setLoading(false)
   }
@@ -49,15 +48,27 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
   async function handleAddPayment(e) {
     e.preventDefault()
     const amount = Number(newPayment)
-    if (!amount || amount <= 0) return
-    const { error } = await supabase.from('payments').insert({
-      order_id: orderId, amount,
-    })
-    if (error) return alert('Error: ' + error.message)
+    if (!amount || amount <= 0 || saving) return
+    const saldo = Number(order.balance || 0)
+    if (amount > saldo && !window.confirm(`El abono (${pesos(amount)}) es mayor que el saldo pendiente (${pesos(saldo)}). ¿Registrarlo de todas formas?`)) return
+    setSaving(true)
+    const { error } = await supabase.from('payments').insert({ order_id: orderId, amount })
+    if (error) { setSaving(false); return alert('Error: ' + error.message) }
     const { error: errSaldo } = await recalcularSaldo(orderId)
     if (errSaldo) alert('El abono se guardó, pero no se pudo actualizar el saldo: ' + errSaldo.message)
     setNewPayment('')
     await loadAll()
+    setSaving(false)
+    onChanged()
+  }
+
+  async function handleDeletePayment(p) {
+    if (!window.confirm(`¿Eliminar el abono de ${pesos(p.amount)} del ${new Date(p.payment_date).toLocaleDateString('es-CO')}?`)) return
+    setSaving(true)
+    const { error } = await eliminarAbono(p)
+    if (error) alert('Error: ' + error.message)
+    await loadAll()
+    setSaving(false)
     onChanged()
   }
 
@@ -81,7 +92,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
 
     const win = window.open('', '_blank')
     win.document.write(`
-      <html><head><title>Recibo de Pedido #${order.order_number}</title>
+      <html><head><title>Recibo de Pedido #${esc(order.order_number)}</title>
       <style>
         @page{size:80mm auto; margin:8mm 5mm}
         *{box-sizing:border-box}
@@ -106,16 +117,16 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       <div class="header">
         <img src="${logoUrl}" onerror="this.style.display='none'" />
         <div>
-          <div class="company">${companyName}</div>
+          <div class="company">${esc(companyName)}</div>
           <h2>RECIBO DE CAJA</h2>
-          <div class="muted">Pedido #${order.order_number} — ${order.date}</div>
+          <div class="muted">Pedido #${esc(order.order_number)} — ${esc(order.date)}</div>
         </div>
       </div>
       <table>
-        <tr><td class="label">Cliente</td><td>${client?.name ?? '—'}</td></tr>
-        <tr><td class="label">Teléfono</td><td>${client?.phone ?? '—'}</td></tr>
-        <tr><td class="label">Tipo de trabajo</td><td>${order.work_type ?? '—'}</td></tr>
-        <tr><td class="label">Responsable</td><td>${order.responsible ?? '—'}</td></tr>
+        <tr><td class="label">Cliente</td><td>${esc(client?.name)}</td></tr>
+        <tr><td class="label">Teléfono</td><td>${esc(client?.phone)}</td></tr>
+        <tr><td class="label">Tipo de trabajo</td><td>${esc(order.work_type)}</td></tr>
+        <tr><td class="label">Responsable</td><td>${esc(order.responsible)}</td></tr>
         <tr><td class="label">Total</td><td>$${Number(order.total).toLocaleString('es-CO')}</td></tr>
         <tr><td class="label">Abonado</td><td>$${Number(order.advance).toLocaleString('es-CO')}</td></tr>
         <tr class="total"><td class="label">Saldo Pendiente</td><td>$${Number(order.balance).toLocaleString('es-CO')}</td></tr>
@@ -123,7 +134,7 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
       ${order.observations ? `
         <div class="descripcion">
           <strong>Descripción del trabajo:</strong><br/>
-          ${order.observations.replace(/</g, '&lt;')}
+          ${esc(order.observations)}
         </div>
       ` : ''}
       </body></html>
@@ -214,14 +225,29 @@ export default function PedidoDetalleModal({ orderId, onClose, onChanged }) {
               onChange={(e) => setNewPayment(e.target.value)}
               className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
             />
-            <button className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600">Registrar</button>
+            <button disabled={saving} className="px-4 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 disabled:opacity-50">Registrar</button>
           </form>
+          {Number(order.balance) > 0 && (
+            <button
+              type="button" onClick={() => setNewPayment(String(Number(order.balance)))}
+              className="-mt-2 mb-4 text-xs text-panel-orange hover:underline"
+            >
+              Pagar saldo completo ({pesos(order.balance)})
+            </button>
+          )}
           <ul className="divide-y divide-panel-border/60 text-sm">
             {payments.length === 0 && <li className="py-3 text-slate-500">Sin abonos registrados.</li>}
             {payments.map((p) => (
-              <li key={p.id} className="py-2 flex justify-between">
-                <span>{new Date(p.payment_date).toLocaleDateString('es-CO')}</span>
-                <span className="font-medium">${Number(p.amount).toLocaleString('es-CO')}</span>
+              <li key={p.id} className="py-2 flex items-center gap-3">
+                <span className="flex-1">{new Date(p.payment_date).toLocaleDateString('es-CO')}</span>
+                <span className="font-medium">{pesos(p.amount)}</span>
+                <button
+                  type="button" disabled={saving} onClick={() => handleDeletePayment(p)}
+                  title="Eliminar abono" aria-label="Eliminar abono"
+                  className="h-8 w-8 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40"
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>

@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import PedidoFormModal from '../components/PedidoFormModal'
 import PedidoDetalleModal from '../components/PedidoDetalleModal'
-import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe } from '../lib/constantes'
+import { ESTADOS_PEDIDO, ESTADO_BADGE as badgeColor, categoriaDe, categoriasPara } from '../lib/constantes'
+import { limpiarBusqueda, useDebounce, pesos } from '../lib/utilidades'
 const PAGE_SIZE = 10
 
 export default function Pedidos() {
@@ -11,6 +12,8 @@ export default function Pedidos() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos los Estados')
+  const [tipoFilter, setTipoFilter] = useState('')
+  const searchTerm = useDebounce(limpiarBusqueda(search), 300)
   const [formOpen, setFormOpen] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [detailId, setDetailId] = useState(null)
@@ -18,9 +21,8 @@ export default function Pedidos() {
   const [page, setPage] = useState(1)
   const [totalOrders, setTotalOrders] = useState(0)
 
-  async function loadOrders() {
+  async function loadOrders(vigente) {
     setLoading(true)
-    const searchTerm = search.trim()
     let matchingClientIds = []
 
     if (searchTerm) {
@@ -28,6 +30,7 @@ export default function Pedidos() {
         .from('clients')
         .select('id')
         .or(`name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
+        .limit(200)
 
       matchingClientIds = (matchingClients ?? []).map((client) => client.id)
     }
@@ -39,6 +42,7 @@ export default function Pedidos() {
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
 
     if (statusFilter !== 'Todos los Estados') query = query.eq('status', statusFilter)
+    if (tipoFilter) query = query.ilike('work_type', tipoFilter)
     if (searchTerm) {
       const searchFilters = [`order_number.ilike.%${searchTerm}%`, `responsible.ilike.%${searchTerm}%`]
       if (matchingClientIds.length) searchFilters.push(`client_id.in.(${matchingClientIds.join(',')})`)
@@ -46,6 +50,7 @@ export default function Pedidos() {
     }
 
     const { data, error, count } = await query
+    if (!vigente.ok) return // llegó una respuesta vieja: se ignora
     if (!error) {
       setOrders(data ?? [])
       setTotalOrders(count ?? 0)
@@ -53,7 +58,11 @@ export default function Pedidos() {
     setLoading(false)
   }
 
-  useEffect(() => { loadOrders() }, [search, statusFilter, refreshKey, page])
+  useEffect(() => {
+    const vigente = { ok: true }
+    loadOrders(vigente)
+    return () => { vigente.ok = false }
+  }, [searchTerm, statusFilter, tipoFilter, refreshKey, page])
 
   function openNew() {
     setEditingOrder(null)
@@ -73,7 +82,7 @@ export default function Pedidos() {
   }
 
   return (
-    <Layout title="Panel de Administración" refreshKey={refreshKey}>
+    <Layout title="Pedidos" refreshKey={refreshKey}>
       <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
           <h2 className="font-semibold text-lg">Gestión de Pedidos</h2>
@@ -92,9 +101,17 @@ export default function Pedidos() {
               <option>Todos los Estados</option>
               {ESTADOS_PEDIDO.map((s) => <option key={s}>{s}</option>)}
             </select>
+            <select
+              value={tipoFilter}
+              onChange={(e) => { setTipoFilter(e.target.value); setPage(1) }}
+              className="min-w-0 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border text-sm"
+            >
+              <option value="">Todos los tipos</option>
+              {categoriasPara('pedidos').map((c) => <option key={c.nombre}>{c.nombre}</option>)}
+            </select>
             <button
               onClick={openNew}
-              className="px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600"
+              className="col-span-2 px-4 py-2 rounded-lg bg-panel-orange text-sm font-medium hover:bg-orange-600"
             >
               + Agregar
             </button>
@@ -124,8 +141,8 @@ export default function Pedidos() {
                   )}
                 </div>
                 <div className="text-right text-xs">
-                  <div className="text-slate-400">Total ${Number(o.total).toLocaleString('es-CO')}</div>
-                  <div className="font-semibold text-sm">Saldo ${Number(o.balance).toLocaleString('es-CO')}</div>
+                  <div className="text-slate-400">Total {pesos(o.total)}</div>
+                  <div className="font-semibold text-sm">Saldo {pesos(o.balance)}</div>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 border-t border-panel-border/60 pt-3">
@@ -170,8 +187,8 @@ export default function Pedidos() {
                   ) : '—'}
                 </td>
                 <td className="py-3 text-slate-300">{o.date}</td>
-                <td className="py-3">${Number(o.total).toLocaleString('es-CO')}</td>
-                <td className="py-3">${Number(o.balance).toLocaleString('es-CO')}</td>
+                <td className="py-3">{pesos(o.total)}</td>
+                <td className="py-3">{pesos(o.balance)}</td>
                 <td className="py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor[o.status] ?? 'bg-slate-500/15 text-slate-300'}`}>
                     {o.status}

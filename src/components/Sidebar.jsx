@@ -5,6 +5,7 @@ const links = [
   { to: '/clientes', label: 'Clientes', icon: '👥' },
   { to: '/pedidos', label: 'Pedidos', icon: '🧾' },
   { to: '/agenda', label: 'Agenda', icon: '📅' },
+  { to: '/reportes', label: 'Reportes', icon: '📊' },
   { to: '/buzon', label: 'Buzón Interno', icon: '📥' },
 ]
 
@@ -27,9 +28,9 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
       fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0
       ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="px-5 py-6 flex items-center gap-2 border-b border-panel-border">
-        <div className="w-9 h-9 rounded-lg bg-panel-orange flex items-center justify-center font-bold">P</div>
+        <img src="/logo.png" alt="" className="w-9 h-9 rounded-lg object-cover bg-white" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         <div>
-          <div className="font-semibold leading-tight">Panel Admin</div>
+          <div className="font-semibold leading-tight">{import.meta.env.VITE_COMPANY_NAME || 'Panel Admin'}</div>
           <div className="text-xs text-slate-400 leading-tight">Sistema de Gestión</div>
         </div>
         <button onClick={onClose} aria-label="Cerrar menú" className="ml-auto lg:hidden text-2xl leading-none text-slate-400 hover:text-white">×</button>

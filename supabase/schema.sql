@@ -1,7 +1,10 @@
 -- ============================================================
 -- Panel de Administración — esquema Supabase
--- Multi-tenant: cada fila pertenece a un user_id (auth.users.id)
--- Pega este script completo en Supabase → SQL Editor → Run
+-- Refleja la base de PRODUCCIÓN revisada el 11-nov-2026 (tablas, reglas de
+-- acceso e índices). Úsalo para montar una base nueva desde cero:
+-- Supabase → SQL Editor → pegar todo → Run.
+-- Clientes y pedidos son de cada usuario; agenda, abonos, observaciones y
+-- buzón los comparten todos los usuarios con sesión iniciada.
 -- ============================================================
 
 create extension if not exists "uuid-ossp";
@@ -69,35 +72,21 @@ create table if not exists public.company_suggestions (
   created_at timestamptz not null default now()
 );
 
--- ---------- Índices útiles ----------
-create index if not exists idx_orders_user_id on public.orders(user_id);
-create index if not exists idx_orders_client_id on public.orders(client_id);
-create index if not exists idx_clients_user_id on public.clients(user_id);
-create index if not exists idx_payments_order_id on public.payments(order_id);
-create index if not exists idx_sessions_user_id on public.sessions(user_id);
-create index if not exists idx_sessions_date on public.sessions(date);
+-- ---------- Índices ----------
+create unique index if not exists orders_order_number_unico on public.orders (order_number);
+create index if not exists orders_date_idx        on public.orders (date desc);
+create index if not exists orders_client_idx      on public.orders (client_id);
+create index if not exists orders_status_idx      on public.orders (status);
+create index if not exists payments_order_idx     on public.payments (order_id);
+create index if not exists sessions_date_idx      on public.sessions (date);
+create index if not exists sessions_client_idx    on public.sessions (client_id);
+create index if not exists observations_order_idx on public.order_observations (order_id);
+
+-- El saldo (advance / balance) lo recalcula la aplicación al registrar o
+-- eliminar un abono (src/lib/pedidos.js). No hay triggers.
 
 -- ============================================================
--- Trigger: recalcular balance/estado del pedido cuando se agrega un pago
--- ============================================================
-create or replace function public.recalc_order_balance()
-returns trigger as $$
-begin
-  update public.orders o
-    set advance = coalesce((select sum(amount) from public.payments p where p.order_id = o.id), 0),
-        balance = greatest(0, o.total - coalesce((select sum(amount) from public.payments p where p.order_id = o.id), 0))
-    where o.id = coalesce(new.order_id, old.order_id);
-  return null;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists trg_recalc_balance_ins on public.payments;
-create trigger trg_recalc_balance_ins
-after insert or update or delete on public.payments
-for each row execute function public.recalc_order_balance();
-
--- ============================================================
--- Row Level Security: cada usuario solo ve/edita sus propios datos
+-- Reglas de acceso (Row Level Security)
 -- ============================================================
 alter table public.clients enable row level security;
 alter table public.orders enable row level security;
@@ -106,37 +95,18 @@ alter table public.payments enable row level security;
 alter table public.sessions enable row level security;
 alter table public.company_suggestions enable row level security;
 
--- CLIENTS
-create policy "clients_select_own" on public.clients for select using (auth.uid() = user_id);
-create policy "clients_insert_own" on public.clients for insert with check (auth.uid() = user_id);
-create policy "clients_update_own" on public.clients for update using (auth.uid() = user_id);
-create policy "clients_delete_own" on public.clients for delete using (auth.uid() = user_id);
+create policy clients_select on public.clients for select using (auth.uid() = user_id);
+create policy clients_insert on public.clients for insert with check (auth.uid() = user_id);
+create policy clients_update on public.clients for update using (auth.uid() = user_id);
+create policy clients_delete on public.clients for delete using (auth.uid() = user_id);
 
--- ORDERS
-create policy "orders_select_own" on public.orders for select using (auth.uid() = user_id);
-create policy "orders_insert_own" on public.orders for insert with check (auth.uid() = user_id);
-create policy "orders_update_own" on public.orders for update using (auth.uid() = user_id);
-create policy "orders_delete_own" on public.orders for delete using (auth.uid() = user_id);
+create policy orders_select on public.orders for select using (auth.uid() = user_id);
+create policy orders_insert on public.orders for insert with check (auth.uid() = user_id);
+create policy orders_update on public.orders for update using (auth.uid() = user_id);
+create policy orders_delete on public.orders for delete using (auth.uid() = user_id);
 
--- ORDER_OBSERVATIONS (scoped through parent order's user_id)
-create policy "order_obs_select_own" on public.order_observations for select
-  using (exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid()));
-create policy "order_obs_insert_own" on public.order_observations for insert
-  with check (exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid()));
-create policy "order_obs_delete_own" on public.order_observations for delete
-  using (exists (select 1 from public.orders o where o.id = order_id and o.user_id = auth.uid()));
-
--- PAYMENTS
--- (producción: payments NO tiene user_id; se permite a usuarios autenticados)
+create policy "Enable all for auth users" on public.order_observations for all using (auth.role() = 'authenticated');
 create policy "Enable all for auth users" on public.payments for all using (auth.role() = 'authenticated');
-
--- SESSIONS
-create policy "sessions_select_own" on public.sessions for select using (auth.uid() = user_id);
-create policy "sessions_insert_own" on public.sessions for insert with check (auth.uid() = user_id);
-create policy "sessions_update_own" on public.sessions for update using (auth.uid() = user_id);
-create policy "sessions_delete_own" on public.sessions for delete using (auth.uid() = user_id);
-
--- COMPANY_SUGGESTIONS (visible a todos los usuarios autenticados, buzón interno compartido)
-create policy "suggestions_select_all" on public.company_suggestions for select using (auth.role() = 'authenticated');
-create policy "suggestions_insert_all" on public.company_suggestions for insert with check (auth.role() = 'authenticated');
-create policy "suggestions_delete_all" on public.company_suggestions for delete using (auth.role() = 'authenticated');
+create policy "Enable all access for authenticated users" on public.sessions for all using (auth.role() = 'authenticated');
+create policy "Enable all for auth users" on public.company_suggestions for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

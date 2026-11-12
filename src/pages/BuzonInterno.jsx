@@ -7,13 +7,15 @@ export default function BuzonInterno() {
   const [author, setAuthor] = useState('')
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('company_suggestions')
       .select('*')
       .order('created_at', { ascending: false })
+    setError(error ? error.message : '')
     setItems(data ?? [])
     setLoading(false)
   }
@@ -34,15 +36,17 @@ export default function BuzonInterno() {
 
   async function handleDelete(id) {
     if (!confirm('¿Eliminar esta nota del buzón?')) return
-    await supabase.from('company_suggestions').delete().eq('id', id)
+    const { error } = await supabase.from('company_suggestions').delete().eq('id', id)
+    if (error) return alert('Error: ' + error.message)
     load()
   }
 
   return (
-    <Layout title="Panel de Administración" showStats={false}>
+    <Layout title="Buzón Interno" showStats={false}>
       <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6 max-w-2xl">
         <h2 className="font-semibold text-lg mb-4">Buzón Interno</h2>
 
+        {error && <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-300 text-sm">No se pudo cargar el buzón: {error}</div>}
         <form onSubmit={handleSubmit} className="mb-6 space-y-3">
           <input
             placeholder="Tu nombre (opcional)"

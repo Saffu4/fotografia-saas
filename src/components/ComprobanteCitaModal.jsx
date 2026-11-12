@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { categoriaDe } from '../lib/constantes'
+import { enlaceWhatsApp, telefonoWhatsApp } from '../lib/utilidades'
 
 // Tarjeta con los datos de UNA sola cita, pensada para tomarle pantallazo
 // (o copiar el texto) y enviársela al cliente por WhatsApp.
@@ -11,6 +12,7 @@ export default function ComprobanteCitaModal({ session, onClose }) {
   const fechaTxt = fechaLarga.charAt(0).toUpperCase() + fechaLarga.slice(1)
   const horaTxt = fecha.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true })
   const cliente = session.clients?.name ?? ''
+  const telefono = session.clients?.phone ?? ''
   const cat = categoriaDe(session.studio)
 
   const texto = [
@@ -70,8 +72,14 @@ export default function ComprobanteCitaModal({ session, onClose }) {
         </div>
 
         <div className="mt-3 flex gap-2">
-          <button onClick={copiar} className="flex-1 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 text-sm">
-            {copiado ? '✓ Copiado' : 'Copiar texto para WhatsApp'}
+          <a
+            href={enlaceWhatsApp(telefono, texto)} target="_blank" rel="noreferrer"
+            className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 font-medium text-sm text-center text-white"
+          >
+            {telefonoWhatsApp(telefono) ? 'Enviar por WhatsApp' : 'Abrir WhatsApp'}
+          </a>
+          <button onClick={copiar} className="px-3 py-2 rounded-lg bg-panel-orange font-medium hover:bg-orange-600 text-sm">
+            {copiado ? '✓ Copiado' : 'Copiar'}
           </button>
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-panel-border bg-panel-card text-slate-300 hover:bg-white/5 text-sm">
             Cerrar

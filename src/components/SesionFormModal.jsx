@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
+import ClientePicker from './ClientePicker'
 import { opcionesCategoria, nombreCanonico, fechaLocalInput, horaLocalInput } from '../lib/constantes'
 
 function getSessionForm(session, defaultDate) {
@@ -29,23 +30,36 @@ function getSessionForm(session, defaultDate) {
 
 export default function SesionFormModal({ defaultDate, session, onClose, onSaved, onDeleted }) {
   const { user } = useAuth()
-  const [clients, setClients] = useState([])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(() => getSessionForm(session, defaultDate))
 
-  useEffect(() => {
-    supabase.from('clients').select('id, name').order('name').then(({ data }) => {
-      if (data) setClients(data)
-    })
-  }, [])
-
   async function handleSubmit(e) {
     e.preventDefault()
+    const inicio = new Date(`${form.date}T${form.time}:00`)
+    const iso = inicio.toISOString()
+
+    // Aviso de cita doble: otras citas a menos de 1 hora de esta.
+    setSaving(true)
+    const UNA_HORA = 60 * 60 * 1000
+    let q = supabase.from('sessions')
+      .select('id, date, studio, clients(name)')
+      .gt('date', new Date(inicio - UNA_HORA).toISOString())
+      .lt('date', new Date(+inicio + UNA_HORA).toISOString())
+    if (session) q = q.neq('id', session.id)
+    const { data: choques } = await q
+    setSaving(false)
+
     const action = session ? 'modificar' : 'agendar'
-    if (!window.confirm(`¿Confirmas ${action} esta sesión?`)) return
+    let pregunta = `¿Confirmas ${action} esta sesión?`
+    if (choques?.length) {
+      const lista = choques.map((c) =>
+        `• ${new Date(c.date).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })} — ${c.clients?.name ?? 'Sin cliente'}${c.studio ? ` (${c.studio})` : ''}`
+      ).join('\n')
+      pregunta = `⚠️ Ya hay ${choques.length === 1 ? 'una cita' : choques.length + ' citas'} cerca de esa hora:\n${lista}\n\n¿${action === 'agendar' ? 'Agendar' : 'Guardar'} de todas formas?`
+    }
+    if (!window.confirm(pregunta)) return
 
     setSaving(true)
-    const iso = new Date(`${form.date}T${form.time}:00`).toISOString()
     const sessionData = {
       client_id: form.client_id || null,
       date: iso,
@@ -74,14 +88,9 @@ export default function SesionFormModal({ defaultDate, session, onClose, onSaved
     <Modal title={session ? 'Modificar Sesión' : 'Agendar Sesión'} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <label className="block text-sm mb-1 text-slate-300">Cliente</label>
-        <select
-          value={form.client_id}
-          onChange={(e) => setForm({ ...form, client_id: e.target.value })}
-          className="w-full mb-4 px-3 py-2 rounded-lg bg-panel-bg border border-panel-border"
-        >
-          <option value="">Sin asignar</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div className="mb-4">
+          <ClientePicker value={form.client_id} onChange={(id) => setForm((f) => ({ ...f, client_id: id }))} />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>

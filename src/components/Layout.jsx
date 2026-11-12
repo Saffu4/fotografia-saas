@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import StatCard from './StatCard'
 import { useStats } from '../lib/useStats'
@@ -6,6 +6,9 @@ import { useStats } from '../lib/useStats'
 export default function Layout({ title, children, showStats = true, refreshKey }) {
   const stats = useStats(refreshKey)
   const [menuOpen, setMenuOpen] = useState(false)
+  const empresa = import.meta.env.VITE_COMPANY_NAME || 'Panel'
+
+  useEffect(() => { document.title = `${title} · ${empresa}` }, [title, empresa])
 
   return (
     <div className="flex min-h-screen bg-panel-bg">

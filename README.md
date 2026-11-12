@@ -96,3 +96,18 @@ supabase/
   sigan el mismo patrón que las demás tablas.
 - Nunca subas tu archivo `.env` a un repositorio público (ya está en
   `.gitignore`).
+
+## Pruebas
+
+```bash
+npm test
+```
+
+## Migraciones aplicadas en producción
+
+Correr en Supabase → SQL Editor, en este orden (ambas se pueden repetir sin
+duplicar datos):
+
+1. `supabase/migracion_2026-11_abonos.sql` — convierte abonos escritos a mano en pagos.
+2. `supabase/migracion_2026-11_seguridad.sql` — reglas del Buzón, categorías
+   unificadas, número de pedido único e índices.

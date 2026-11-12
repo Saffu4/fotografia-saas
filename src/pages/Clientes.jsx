@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
+import ClienteHistorialModal from '../components/ClienteHistorialModal'
+import { limpiarBusqueda, useDebounce } from '../lib/utilidades'
 
 const emptyForm = { name: '', phone: '', address: '' }
 const PAGE_SIZE = 10
@@ -19,18 +21,21 @@ export default function Clientes() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [page, setPage] = useState(1)
   const [totalClients, setTotalClients] = useState(0)
+  const [historial, setHistorial] = useState(null)
+  const busqueda = useDebounce(limpiarBusqueda(search), 300)
 
-  async function loadClients() {
+  async function loadClients(vigente = { ok: true }) {
     setLoading(true)
     let query = supabase
       .from('clients')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
-    if (search.trim()) {
-      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,address.ilike.%${search}%`)
+    if (busqueda) {
+      query = query.or(`name.ilike.%${busqueda}%,phone.ilike.%${busqueda}%,address.ilike.%${busqueda}%`)
     }
     const { data, error, count } = await query
+    if (!vigente.ok) return
     if (!error) {
       setClients(data ?? [])
       setTotalClients(count ?? 0)
@@ -38,7 +43,11 @@ export default function Clientes() {
     setLoading(false)
   }
 
-  useEffect(() => { loadClients() }, [search, page, refreshKey])
+  useEffect(() => {
+    const vigente = { ok: true }
+    loadClients(vigente)
+    return () => { vigente.ok = false }
+  }, [busqueda, page, refreshKey])
 
   function openNew() {
     setEditing(null)
@@ -55,39 +64,32 @@ export default function Clientes() {
   async function handleSave(e) {
     e.preventDefault()
     setSaving(true)
+    const datos = { name: form.name.trim(), phone: form.phone.trim(), address: form.address.trim() }
 
-    if (editing) {
-      const { error } = await supabase
-        .from('clients')
-        .update({ name: form.name, phone: form.phone, address: form.address })
-        .eq('id', editing.id)
-      if (error) alert('Error al actualizar: ' + error.message)
-    } else {
-      const { error } = await supabase
-        .from('clients')
-        .insert({ ...form, user_id: user.id })
-      if (error) alert('Error al crear: ' + error.message)
-    }
+    const { error } = editing
+      ? await supabase.from('clients').update(datos).eq('id', editing.id)
+      : await supabase.from('clients').insert({ ...datos, user_id: user.id })
 
     setSaving(false)
+    // Si falla, el formulario queda abierto para no perder lo escrito.
+    if (error) return alert((editing ? 'Error al actualizar: ' : 'Error al crear: ') + error.message)
     setModalOpen(false)
-    loadClients()
     setRefreshKey((k) => k + 1)
   }
 
   async function handleDelete(client) {
-    if (!confirm(`¿Eliminar a ${client.name}? Esta acción no se puede deshacer.`)) return
+    const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true }).eq('client_id', client.id)
+    const aviso = count
+      ? `${client.name} tiene ${count} pedido(s). Si lo eliminas, esos pedidos quedan sin cliente.\n\n¿Eliminar de todas formas?`
+      : `¿Eliminar a ${client.name}? Esta acción no se puede deshacer.`
+    if (!confirm(aviso)) return
     const { error } = await supabase.from('clients').delete().eq('id', client.id)
-    if (error) {
-      alert('Error al eliminar: ' + error.message)
-      return
-    }
-    loadClients()
+    if (error) return alert('Error al eliminar: ' + error.message)
     setRefreshKey((k) => k + 1)
   }
 
   return (
-    <Layout title="Panel de Administración" refreshKey={refreshKey}>
+    <Layout title="Clientes" refreshKey={refreshKey}>
       <div className="bg-panel-card border border-panel-border rounded-xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="font-semibold text-lg">Gestión de Clientes</h2>
@@ -119,6 +121,7 @@ export default function Clientes() {
                 {c.address && <div className="text-slate-400 text-xs truncate">{c.address}</div>}
               </div>
               <div className="flex shrink-0">
+                <button onClick={() => setHistorial(c)} className="h-10 w-10 rounded-lg hover:bg-white/5" title="Ver historial">👁️</button>
                 <button onClick={() => openEdit(c)} className="h-10 w-10 rounded-lg hover:bg-white/5" title="Editar">✏️</button>
                 <button onClick={() => handleDelete(c)} className="h-10 w-10 rounded-lg hover:bg-white/5" title="Eliminar">🗑️</button>
               </div>
@@ -145,10 +148,13 @@ export default function Clientes() {
             )}
             {clients.map((c) => (
               <tr key={c.id} className="border-b border-panel-border/60 hover:bg-white/[0.03]">
-                <td className="py-3 font-medium">{c.name}</td>
+                <td className="py-3 font-medium">
+                  <button onClick={() => setHistorial(c)} className="hover:text-panel-orange text-left">{c.name}</button>
+                </td>
                 <td className="py-3 text-slate-300">{c.phone || '—'}</td>
                 <td className="py-3 text-slate-300">{c.address || '—'}</td>
-                <td className="py-3 text-right">
+                <td className="py-3 text-right whitespace-nowrap">
+                  <button onClick={() => setHistorial(c)} className="mr-3" title="Ver historial">👁️</button>
                   <button onClick={() => openEdit(c)} className="text-blue-400 hover:text-blue-300 mr-3" title="Editar">✏️</button>
                   <button onClick={() => handleDelete(c)} className="text-red-400 hover:text-red-300" title="Eliminar">🗑️</button>
                 </td>
@@ -221,6 +227,7 @@ export default function Clientes() {
           </form>
         </Modal>
       )}
+      {historial && <ClienteHistorialModal client={historial} onClose={() => setHistorial(null)} />}
     </Layout>
   )
 }

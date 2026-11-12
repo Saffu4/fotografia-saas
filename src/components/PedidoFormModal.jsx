@@ -2,28 +2,17 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import Modal from './Modal'
-import { ESTADOS_PEDIDO, opcionesCategoria, nombreCanonico } from '../lib/constantes'
-import { recalcularSaldo } from '../lib/pedidos'
-
-async function nextOrderNumber() {
-  const { data } = await supabase
-    .from('orders')
-    .select('order_number')
-    .order('created_at', { ascending: false })
-    .limit(1)
-  const last = data?.[0]?.order_number
-  const lastNum = last ? parseInt(last, 10) : 0
-  return String((isNaN(lastNum) ? 0 : lastNum) + 1).padStart(5, '0')
-}
+import ClientePicker from './ClientePicker'
+import { ESTADOS_PEDIDO, opcionesCategoria, nombreCanonico, fechaLocalInput } from '../lib/constantes'
+import { recalcularSaldo, siguienteNumeroPedido } from '../lib/pedidos'
 
 export default function PedidoFormModal({ order, onClose, onSaved }) {
   const { user } = useAuth()
-  const [clients, setClients] = useState([])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     order_number: '',
     client_id: '',
-    date: new Date().toISOString().slice(0, 10),
+    date: fechaLocalInput(new Date()),
     work_type: 'Fotoshow',
     total: 0,
     advance: 0,
@@ -33,10 +22,6 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
   })
 
   useEffect(() => {
-    supabase.from('clients').select('id, name, phone').order('name').then(({ data }) => {
-      if (data) setClients(data)
-    })
-
     if (order) {
       setForm({
         order_number: order.order_number,
@@ -50,7 +35,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
         observations: order.observations ?? '',
       })
     } else {
-      nextOrderNumber().then((n) => setForm((f) => ({ ...f, order_number: n })))
+      siguienteNumeroPedido().then((n) => setForm((f) => ({ ...f, order_number: n })))
     }
   }, [order])
 
@@ -60,6 +45,11 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!form.client_id) return alert('Elige un cliente.')
+    const abonoInicial = Number(form.advance) || 0
+    if (!order && abonoInicial > (Number(form.total) || 0)) {
+      return alert('El abono inicial no puede ser mayor que el total.')
+    }
     setSaving(true)
 
     const payload = {
@@ -82,15 +72,21 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
     if (order) {
       ;({ error } = await supabase.from('orders').update(payload).eq('id', order.id))
     } else {
+      // Si otra persona tomó el mismo número al mismo tiempo, se intenta con
+      // el siguiente (la base rechaza números repetidos con el código 23505).
       let created
-      ;({ data: created, error } = await supabase
-        .from('orders')
-        .insert({ ...payload, advance: 0, balance: payload.total, user_id: user.id })
-        .select('id')
-        .single())
+      let numero = payload.order_number
+      for (let intento = 0; intento < 5; intento++) {
+        ;({ data: created, error } = await supabase
+          .from('orders')
+          .insert({ ...payload, order_number: numero, advance: 0, balance: payload.total, user_id: user.id })
+          .select('id')
+          .single())
+        if (error?.code !== '23505') break
+        numero = await siguienteNumeroPedido()
+      }
       orderId = created?.id
 
-      const abonoInicial = Number(form.advance) || 0
       if (!error && abonoInicial > 0) {
         ;({ error } = await supabase.from('payments').insert({
           order_id: orderId, amount: abonoInicial,
@@ -131,17 +127,7 @@ export default function PedidoFormModal({ order, onClose, onSaved }) {
 
         <div>
           <label className="block text-sm mb-1 text-slate-300">Cliente *</label>
-          <select
-            required
-            value={form.client_id}
-            onChange={(e) => setForm({ ...form, client_id: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg bg-panel-bg border border-panel-border outline-none focus:border-panel-orange"
-          >
-            <option value="">Buscar cliente...</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} — {c.phone}</option>
-            ))}
-          </select>
+          <ClientePicker required value={form.client_id} onChange={(id) => setForm((f) => ({ ...f, client_id: id }))} />
         </div>
         <div>
           <label className="block text-sm mb-1 text-slate-300">{order ? 'Abonado (COP)' : 'Abono inicial (COP)'}</label>

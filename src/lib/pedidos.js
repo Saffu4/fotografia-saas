@@ -14,3 +14,22 @@ export async function recalcularSaldo(orderId) {
   const balance = Math.max(0, Number(order.total || 0) - advance)
   return supabase.from('orders').update({ advance, balance }).eq('id', orderId)
 }
+
+// Siguiente número de pedido (00001, 00002...). Se toma el mayor número
+// existente, no el último creado, para no repetir si alguien editó fechas.
+export async function siguienteNumeroPedido() {
+  const { data } = await supabase
+    .from('orders')
+    .select('order_number')
+    .order('order_number', { ascending: false })
+    .limit(50)
+  const mayor = Math.max(0, ...(data ?? []).map((o) => parseInt(o.order_number, 10)).filter(Number.isFinite))
+  return String(mayor + 1).padStart(5, '0')
+}
+
+// Elimina un abono y recalcula el saldo del pedido.
+export async function eliminarAbono(pago) {
+  const { error } = await supabase.from('payments').delete().eq('id', pago.id)
+  if (error) return { error }
+  return recalcularSaldo(pago.order_id)
+}
