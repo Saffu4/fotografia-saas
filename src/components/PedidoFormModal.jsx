@@ -7,7 +7,7 @@ import CampoDinero from './CampoDinero'
 import { ESTADOS_PEDIDO, opcionesCategoria, nombreCanonico, fechaLocalInput, opcionesResponsable, nombreResponsable } from '../lib/constantes'
 import { recalcularSaldo, siguienteNumeroPedido } from '../lib/pedidos'
 import { aPesosNumero, pesos } from '../lib/utilidades'
-import { avisar, confirmar } from './Avisos'
+import { avisar } from './Avisos'
 
 export default function PedidoFormModal({ order, onClose, onSaved }) {
   const { user } = useAuth()

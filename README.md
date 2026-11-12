@@ -9,9 +9,8 @@ a una base de datos real en **Supabase**, con autenticación y seguridad por fil
 1. Entra a https://supabase.com y crea un proyecto (o usa uno existente).
 2. Ve a **SQL Editor** → pega todo el contenido de `supabase/schema.sql` → **Run**.
    Esto crea las tablas `clients`, `orders`, `order_observations`, `payments`,
-   `sessions`, `company_suggestions`, sus índices, un trigger que recalcula
-   automáticamente el saldo del pedido cuando registras un abono, y las
-   políticas de RLS (cada usuario solo ve sus propios clientes/pedidos).
+   `sessions`, `company_suggestions`, sus índices y las
+   reglas de acceso (RLS).
 3. Ve a **Authentication → Providers** y confirma que "Email" esté activo.
 4. Crea al menos un usuario en **Authentication → Users → Add user** (o activa
    el registro público si prefieres que la gente se registre sola).
@@ -62,40 +61,48 @@ cualquier hosting estático.
 src/
   lib/
     supabaseClient.js   → cliente de Supabase (lee las variables VITE_*)
-    useAuth.js           → hook de sesión
-    useStats.js          → hook de los contadores del dashboard
+    useAuth.js          → sesión del usuario
+    admin.js            → quién puede ver Reportes (correo del dueño)
+    constantes.js       → estados, categorías con color y responsables
+    pedidos.js          → saldo, número de pedido, eliminar abono
+    datos.js            → traer muchas filas, búsqueda de clientes sin tildes
+    utilidades.js       → dinero ("50.000"), WhatsApp, CSV, búsqueda
   components/
-    Sidebar.jsx, StatCard.jsx, Modal.jsx, Layout.jsx
-    PedidoFormModal.jsx, PedidoDetalleModal.jsx, SesionFormModal.jsx
+    Layout, Sidebar, Modal, Avisos (avisos y confirmaciones), CampoDinero,
+    ClientePicker, ClienteHistorialModal, PedidoFormModal,
+    PedidoDetalleModal, SesionFormModal, ComprobanteCitaModal
   pages/
-    Login.jsx, Clientes.jsx, Pedidos.jsx, Agenda.jsx, BuzonInterno.jsx
+    Login, Restablecer, Clientes, Pedidos, Agenda, Reportes, BuzonInterno
 supabase/
-  schema.sql            → todo el esquema + RLS + trigger de saldo
+  schema.sql            → esquema completo igual a producción
+  migracion_*.sql       → cambios aplicados a la base real (ver abajo)
 ```
+
+Para cambiar categorías, colores, estados o responsables, edita solo
+`src/lib/constantes.js`.
 
 ## Qué hace cada módulo
 
-- **Clientes**: listar, buscar, crear, editar y eliminar (tabla `clients`).
-- **Pedidos**: listar con filtro por estado y búsqueda, crear/editar (número
-  autoincremental, cliente, total, abono, saldo calculado, responsable,
-  estado, tipo de trabajo, observaciones), ver detalle con pestañas
-  (Detalles Generales / Abonos-Pagos / Observaciones), registrar abonos
-  (actualiza el saldo automáticamente vía trigger de base de datos),
-  agregar notas, e imprimir un recibo en una ventana nueva.
-- **Agenda**: calendario mensual de `sessions`, click en un día para agendar.
-- **Buzón Interno**: notas/sugerencias compartidas (`company_suggestions`),
-  visibles para cualquier usuario autenticado.
+- **Clientes**: buscar (sin importar tildes), crear, editar, eliminar e
+  historial de cada cliente (pedidos, saldo y citas). Avisa si el cliente ya
+  existe.
+- **Pedidos**: filtros por estado y tipo, número automático, abono inicial,
+  abonos y eliminación de abonos (el saldo lo recalcula la aplicación),
+  estado que se guarda al elegirlo, observaciones e impresión del recibo.
+- **Agenda**: calendario mensual con color por categoría, aviso de cita doble
+  o en fecha pasada, comprobante de la cita y envío por WhatsApp.
+- **Reportes** (solo el dueño): cartera, ventas por mes y por tipo,
+  recordatorio de cobro por WhatsApp y respaldo CSV de todas las tablas.
+- **Buzón Interno**: notas compartidas del equipo.
 
 ## Notas de seguridad
 
-- Todas las tablas tienen RLS activado: un usuario solo puede leer/editar
-  sus propios clientes, pedidos, pagos y sesiones (columna `user_id`).
-- `company_suggestions` es compartida entre todos los usuarios autenticados
-  (buzón interno de equipo). Si prefieres que también sea privada por
-  usuario, agrégale una columna `user_id` y cambia sus políticas para que
-  sigan el mismo patrón que las demás tablas.
-- Nunca subas tu archivo `.env` a un repositorio público (ya está en
-  `.gitignore`).
+- Clientes y pedidos son de cada usuario; agenda, abonos, observaciones y
+  buzón los comparten todos los usuarios con sesión iniciada.
+- Reportes solo aparece para el correo configurado en `src/lib/admin.js`.
+- Para que funcione "Olvidé mi contraseña", agrega
+  `https://<tu-dominio>/restablecer` en Supabase → Authentication →
+  URL Configuration → Redirect URLs.
 
 ## Pruebas
 
@@ -105,9 +112,10 @@ npm test
 
 ## Migraciones aplicadas en producción
 
-Correr en Supabase → SQL Editor, en este orden (ambas se pueden repetir sin
+Correr en Supabase → SQL Editor, en este orden (todas se pueden repetir sin
 duplicar datos):
 
 1. `supabase/migracion_2026-11_abonos.sql` — convierte abonos escritos a mano en pagos.
 2. `supabase/migracion_2026-11_seguridad.sql` — reglas del Buzón, categorías
    unificadas, número de pedido único e índices.
+3. `supabase/migracion_2026-11_busqueda.sql` — búsqueda de clientes sin tildes.

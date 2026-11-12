@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/useAuth'
 import { limpiarBusqueda, useDebounce } from '../lib/utilidades'
 import { buscarClientes } from '../lib/datos'
-import { avisar, confirmar } from './Avisos'
+import { avisar } from './Avisos'
 
 // Buscador de clientes: busca en la base mientras se escribe (no carga todos
 // los clientes de una vez) y permite crear uno nuevo sin salir del formulario.

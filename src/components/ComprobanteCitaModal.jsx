@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { categoriaDe } from '../lib/constantes'
 import { enlaceWhatsApp, telefonoWhatsApp } from '../lib/utilidades'
-import { avisar, confirmar } from './Avisos'
+import { avisar } from './Avisos'
 
 // Tarjeta con los datos de UNA sola cita, pensada para tomarle pantallazo
 // (o copiar el texto) y enviársela al cliente por WhatsApp.
