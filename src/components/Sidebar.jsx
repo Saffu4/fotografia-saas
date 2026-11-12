@@ -1,16 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { useEsAdmin } from '../lib/admin'
 
 const links = [
   { to: '/clientes', label: 'Clientes', icon: '👥' },
   { to: '/pedidos', label: 'Pedidos', icon: '🧾' },
   { to: '/agenda', label: 'Agenda', icon: '📅' },
-  { to: '/reportes', label: 'Reportes', icon: '📊' },
+  { to: '/reportes', label: 'Reportes', icon: '📊', soloAdmin: true },
   { to: '/buzon', label: 'Buzón Interno', icon: '📥' },
 ]
 
 export default function Sidebar({ open = false, onClose = () => {} }) {
   const navigate = useNavigate()
+  const { esAdmin } = useEsAdmin()
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -37,7 +39,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
       </div>
 
       <nav className="flex-1 py-4">
-        {links.map((l) => (
+        {links.filter((l) => !l.soloAdmin || esAdmin).map((l) => (
           <NavLink
             key={l.to}
             to={l.to}

@@ -58,3 +58,13 @@ describe('CSV y dinero', () => {
     expect(pesos(1234567)).toMatch(/^\$1.234.567$/)
   })
 })
+
+import { esCorreoAdmin } from '../admin'
+describe('acceso a Reportes', () => {
+  it('solo el correo del dueño', async () => {
+    expect(await esCorreoAdmin('Lithostus@gmail.com')).toBe(true)
+    expect(await esCorreoAdmin(' lithostus@gmail.com ')).toBe(true)
+    expect(await esCorreoAdmin('empleado@gmail.com')).toBe(false)
+    expect(await esCorreoAdmin('')).toBe(false)
+  })
+})
