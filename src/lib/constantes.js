@@ -13,7 +13,7 @@ export const ESTADO_BADGE = {
 
 // Personas que atienden pedidos (campo "Responsable"). Para agregar a
 // alguien, escríbelo aquí.
-export const RESPONSABLES = ['Maye', 'Gustavo', 'Yudith']
+export const RESPONSABLES = ['Maye', 'Gustavo', 'Yudith', 'Julieth', 'Jhoanys', 'Fotoshow']
 
 // "maye " → "Maye"; un nombre que no está en la lista se deja como venía.
 export function nombreResponsable(valor) {
